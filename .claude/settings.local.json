@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node -v)",
+      "PowerShell(npm -v)",
+      "PowerShell($sp=\"C:\\\\Users\\\\luanb\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-luanb-OneDrive-Documents-erp-wata\\\\b28cd315-abbe-4114-b5f5-f1ed197c6f61\\\\scratchpad\"; New-Item -ItemType Directory -Force \"$sp\\\\stash\" | Out-Null; Move-Item \"C:\\\\Users\\\\luanb\\\\OneDrive\\\\Documents\\\\erp-wata\\\\logo.svg\" \"$sp\\\\stash\\\\logo.svg\" -Force; Move-Item \"C:\\\\Users\\\\luanb\\\\OneDrive\\\\Documents\\\\erp-wata\\\\WATA_ERP_Especificacao.md\" \"$sp\\\\stash\\\\WATA_ERP_Especificacao.md\" -Force; Get-ChildItem -Force \"C:\\\\Users\\\\luanb\\\\OneDrive\\\\Documents\\\\erp-wata\"; Get-ChildItem \"$sp\\\\stash\")"
+    ]
+  }
+}
