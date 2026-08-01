@@ -1031,6 +1031,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: undefined
       }
+      reverse_financial_transaction: {
+        Args: { p_transaction_id: string; p_motivo?: string }
+        Returns: { transaction_id: string; expense_id: string }[]
+      }
       sale_gross_profit: {
         Args: { p_sale_id: string }
         Returns: number
