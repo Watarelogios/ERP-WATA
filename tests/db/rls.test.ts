@@ -144,26 +144,30 @@ describe("RLS", () => {
     });
 
     it("nao permite reescrever o historico", async () => {
-      const result = await ctx.asUser(alice, () =>
-        ctx.db.query(
-          "update public.watch_status_history set motivo = 'alterado' where owner_id = $1",
-          [alice],
+      /*
+       * O papel authenticated recebe apenas SELECT e INSERT nesta tabela
+       * (migration 00014), entao o UPDATE e recusado no privilegio, antes
+       * mesmo do RLS. Erro explicito e melhor que um no-op silencioso.
+       */
+      await expect(
+        ctx.asUser(alice, () =>
+          ctx.db.query(
+            "update public.watch_status_history set motivo = 'alterado' where owner_id = $1",
+            [alice],
+          ),
         ),
-      );
-
-      // Sem politica de UPDATE, o RLS nao expoe nenhuma linha para alterar.
-      expect(result.affectedRows).toBe(0);
+      ).rejects.toThrow(/permission denied/i);
     });
 
     it("nao permite apagar o historico", async () => {
-      const result = await ctx.asUser(alice, () =>
-        ctx.db.query(
-          "delete from public.watch_status_history where owner_id = $1",
-          [alice],
+      await expect(
+        ctx.asUser(alice, () =>
+          ctx.db.query(
+            "delete from public.watch_status_history where owner_id = $1",
+            [alice],
+          ),
         ),
-      );
-
-      expect(result.affectedRows).toBe(0);
+      ).rejects.toThrow(/permission denied/i);
 
       const restante = await ctx.db.query(
         "select id from public.watch_status_history where owner_id = $1",

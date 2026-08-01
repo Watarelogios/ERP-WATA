@@ -121,6 +121,48 @@ describe("migrations", () => {
     expect(result.rows).toEqual([]);
   });
 
+  it("concede privilegio de tabela ao papel authenticated", async () => {
+    /*
+     * RLS filtra linhas, mas so depois que o papel tem privilegio na tabela.
+     * Sem GRANT, a aplicacao recebe "permission denied" com as politicas
+     * perfeitamente corretas — foi exatamente o que aconteceu em producao
+     * antes da migration 00014.
+     */
+    const result = await ctx.db.query<{ tablename: string }>(`
+      select t.tablename
+      from pg_tables t
+      where t.schemaname = 'public'
+        and not exists (
+          select 1 from information_schema.role_table_grants g
+          where g.grantee = 'authenticated'
+            and g.table_schema = 'public'
+            and g.table_name = t.tablename
+            and g.privilege_type = 'SELECT'
+        )
+      order by t.tablename
+    `);
+
+    expect(result.rows).toEqual([]);
+  });
+
+  it("concede leitura das views ao papel authenticated", async () => {
+    const result = await ctx.db.query<{ viewname: string }>(`
+      select v.viewname
+      from pg_views v
+      where v.schemaname = 'public'
+        and not exists (
+          select 1 from information_schema.role_table_grants g
+          where g.grantee = 'authenticated'
+            and g.table_schema = 'public'
+            and g.table_name = v.viewname
+            and g.privilege_type = 'SELECT'
+        )
+      order by v.viewname
+    `);
+
+    expect(result.rows).toEqual([]);
+  });
+
   it("cria o bucket privado das fotografias", async () => {
     const result = await ctx.db.query<{
       id: string;

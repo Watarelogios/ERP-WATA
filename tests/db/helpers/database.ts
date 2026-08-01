@@ -35,10 +35,16 @@ const SUPABASE_STUBS = /* sql */ `
 
   grant usage on schema public to anon, authenticated, service_role;
   grant usage on schema auth, storage to authenticated, service_role;
-  alter default privileges in schema public
-    grant all on tables to authenticated, service_role;
-  alter default privileges in schema public
-    grant all on sequences to authenticated, service_role;
+
+  /*
+   * Sem ALTER DEFAULT PRIVILEGES de proposito.
+   *
+   * As default privileges do Supabase valem para objetos criados pelo role
+   * postgres; o comando de push conecta com um login role temporario, entao as
+   * tabelas podem nascer sem grant nenhum para authenticated. Conceder tudo
+   * aqui mascararia essa diferenca: o teste passaria enquanto a aplicacao real
+   * recebe permission denied. As migrations concedem explicitamente (00014).
+   */
 
   create table if not exists auth.users (
     id uuid primary key default gen_random_uuid(),
