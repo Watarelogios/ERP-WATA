@@ -17,42 +17,73 @@ Supabase (Postgres + Auth + Storage) · Vitest · Playwright.
 |------|---------|----------|
 | 1. Fundação | Projeto, dependências, design tokens, Auth SSR e AppShell | **Concluída** |
 | 2. Banco | Migrations, enums, tabelas, RLS, Storage e tipos gerados | **Concluída** |
-| 3. Cadastros | Configuração, clientes, fornecedores e estoque com fotos | Próxima |
-| 4. Compras | Oportunidades e RPC de confirmação | Pendente |
-| 5. Reservas | Sinal, validade, cancelamento e créditos | Pendente |
-| 6. Vendas | Venda própria/consignada, custos, lucros e payout | Pendente |
-| 7. Financeiro | Livro caixa, filtros, estornos e repasses | Pendente |
-| 8. Dashboard | Views, métricas, gráficos e alertas | Pendente |
-| 9. Qualidade | E2E, acessibilidade, responsividade, README e build | Pendente |
+| 3. Cadastros | Configuração, clientes, fornecedores e estoque com fotos | **Concluída** |
+| 4. Compras | Oportunidades e RPC de confirmação | **Concluída** |
+| 5. Reservas | Sinal, validade, cancelamento e créditos | **Concluída** |
+| 6. Vendas | Venda própria/consignada, custos, lucros e payout | **Concluída** |
+| 7. Financeiro | Livro caixa, filtros, estornos e repasses | **Concluída** |
+| 8. Dashboard | Views, métricas, gráficos e alertas | **Concluída** |
+| 9. Qualidade | E2E, acessibilidade, responsividade, README e build | **Concluída** |
 
-As rotas de todos os módulos já existem e já estão protegidas. Cada uma informa
-na tela em qual fase passa a persistir dados — nenhuma simula funcionalidade que
-ainda não existe.
+Todos os módulos do MVP estão implementados e persistem dados. As quatro
+operações compostas da Seção 13 (confirmar compra, criar reserva, cancelar
+reserva e concluir venda) rodam como funções transacionais no banco.
 
-### O que a Fase 1 entregou
+### O que o MVP entrega
 
-- Login por e-mail e senha com sessão em cookies `httpOnly` (Supabase Auth + SSR).
-- Recuperação de senha: solicitação por e-mail, confirmação do link e nova senha.
-- Proteção de rotas no `proxy.ts` com renovação de sessão a cada requisição.
-- Camada de acesso a dados (`requireUser`) usada em toda página autenticada.
-- AppShell: sidebar fixa no desktop, header e barra inferior no celular.
-- Design tokens branco/grafite, fonte Inter e estados de carregamento/erro/vazio.
-- 20 testes unitários e de componente; suíte E2E de proteção de rotas.
+**Autenticação** — login por e-mail e senha com sessão em cookies `httpOnly`,
+recuperação de senha e proteção de rotas no `proxy.ts`, que também renova a
+sessão a cada requisição.
 
-### O que a Fase 2 entregou
+**Cadastros** — configuração da loja com saldo inicial, clientes, fornecedores e
+estoque com fotos em bucket privado. O WATA-ID é gerado por sequência no banco,
+único e imutável.
 
-- 8 migrations SQL versionadas: 15 tabelas, 15 enums, 7 views, funções e índices.
-- RLS ativo em toda tabela, com política `owner_id = auth.uid()` e `WITH CHECK`.
-- Bucket privado `wata-watch-photos` com políticas por pasta do usuário.
-- WATA-ID gerado no banco, único e imutável.
-- Fórmulas de lucro dos três modelos (próprio, consignado fixo, percentual),
-  mantidas por trigger para não divergirem das despesas.
-- Tipos TypeScript gerados a partir das próprias migrations (`npm run db:types`).
-- Seed opcional com dados fictícios, separado de produção.
-- 75 testes de banco rodando contra um Postgres real em memória.
+**Operações** — as quatro operações compostas da Seção 13 são funções
+transacionais em PostgreSQL, não sequências de chamadas do cliente:
 
-> **As migrations ainda não foram aplicadas ao seu projeto Supabase.**
-> Veja [Aplicar as migrations](#aplicar-as-migrations).
+| Operação | O que garante |
+|----------|---------------|
+| `confirm_purchase` | Cria relógio, despesa e saída de caixa de uma vez |
+| `create_reservation` | Bloqueia o relógio e lança o sinal uma única vez |
+| `cancel_reservation` | Trata sinal devolvido, retido ou virado crédito |
+| `complete_sale` | Não cobra o sinal de novo; gera repasse pendente |
+| `pay_consignment_payout` | Debita o caixa uma única vez |
+| `reverse_financial_transaction` | Estorna sem apagar o histórico |
+
+Cada uma trava a linha com `FOR UPDATE` antes de validar, roda como
+`security invoker` (o RLS continua valendo dentro da função) e usa
+`idempotency_key` nos lançamentos financeiros.
+
+**Financeiro e dashboard** — livro caixa com filtro por período, estornos e a
+composição do saldo aberta parcela por parcela. Oito indicadores lidos das views,
+sem nenhum total armazenado.
+
+---
+
+## Qualidade
+
+```
+lint       ✓    typecheck  ✓    build  ✓
+test       ✓ 207 testes (17 arquivos)
+test:e2e   ✓ 28 testes (desktop e 360px)
+```
+
+Os testes de `tests/db/` sobem um Postgres real em memória (PGlite, sem Docker),
+aplicam as migrations de verdade e atacam as tabelas diretamente. Rodam com o
+papel `authenticated`, que não é dono das tabelas — então o RLS realmente vale.
+
+Os cenários críticos da Seção 19.1 estão cobertos:
+
+- [x] Usuário não autenticado não acessa `/dashboard` nem lê dados via API
+- [x] Usuário autenticado não lê nem altera `owner_id` de outro usuário
+- [x] Requisições simultâneas geram WATA-IDs diferentes
+- [x] Duas reservas ativas para o mesmo relógio são rejeitadas
+- [x] Sinal não é contabilizado de novo na conclusão da venda
+- [x] Repasse pendente não reduz o caixa; pago reduz uma única vez
+- [x] Falha no meio de compra/venda não deixa registros parciais
+- [x] Lucros dos três modelos conferem com as fórmulas
+- [x] Layout utilizável em 360 px e em desktop amplo
 
 ---
 
@@ -259,12 +290,55 @@ modelos de lucro.
 - Falha de login não distingue senha errada de conta inexistente, e a recuperação
   de senha responde igual exista ou não a conta — evita enumerar e-mails.
 
-## Deploy
+## Deploy no Vercel
 
-Qualquer plataforma compatível com Next.js 16. Configure as variáveis de ambiente
-do `.env.example` (sem `SUPABASE_SERVICE_ROLE_KEY`, salvo necessidade real),
-aponte `NEXT_PUBLIC_APP_URL` para o domínio de produção e inclua as URLs de
-callback nas *Redirect URLs* do Supabase.
+O repositório já está no GitHub, então o caminho mais curto é importar — sem CLI.
+
+### 1. Importar o projeto
+
+Em <https://vercel.com/new>, importe **`Watarelogios/ERP-WATA`**. O Vercel
+detecta Next.js sozinho: não altere Build Command nem Output Directory.
+
+### 2. Variáveis de ambiente
+
+Ainda na tela de importação, em *Environment Variables*, adicione as três:
+
+| Variável | Valor |
+|----------|-------|
+| `NEXT_PUBLIC_SUPABASE_URL` | A mesma do seu `.env.local` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | A mesma do seu `.env.local` |
+| `NEXT_PUBLIC_APP_URL` | `https://SEU-PROJETO.vercel.app` |
+
+`SUPABASE_SERVICE_ROLE_KEY` **não deve ser adicionada**: o sistema opera com a
+sessão do usuário e RLS, e essa chave ignora todas as políticas.
+
+`NEXT_PUBLIC_APP_URL` precisa apontar para o domínio de produção — é ela que
+monta o link dos e-mails de recuperação de senha. Apontando para `localhost`, o
+e-mail chega com um link que só funciona na sua máquina.
+
+### 3. Liberar as URLs no Supabase
+
+Depois do primeiro deploy, com o domínio em mãos, vá em *Authentication → URL
+Configuration* e:
+
+- defina o **Site URL** como `https://SEU-PROJETO.vercel.app`;
+- acrescente em **Redirect URLs**:
+
+  ```
+  https://SEU-PROJETO.vercel.app/auth/callback
+  https://SEU-PROJETO.vercel.app/auth/confirm
+  ```
+
+Sem isso o login funciona, mas a recuperação de senha falha com "link inválido".
+
+### 4. Conferir
+
+Abra o domínio: deve cair em `/login`. Entre com o usuário criado no painel e
+confirme que o dashboard carrega. Se aparecer "Configuração pendente" na tela de
+login, alguma variável de ambiente não foi lida — revise o passo 2 e refaça o
+deploy.
+
+> Cada `git push` para `main` dispara um novo deploy automaticamente.
 
 ---
 
@@ -343,15 +417,17 @@ espaço e uma escolha foi feita.
 
 ## Pendências reais
 
-- **As migrations ainda não foram aplicadas ao projeto hospedado.** O schema está
-  pronto e testado, mas depende de uma ação manual — veja
-  [Aplicar as migrations](#aplicar-as-migrations).
-- **RPCs transacionais ainda não existem.** Confirmar compra, criar reserva,
-  concluir venda e pagar repasse (Seção 13) entram nas Fases 4, 5 e 6, cada uma
-  como migration adicional. O schema já tem as constraints que essas operações
-  vão precisar.
-- **E2E não cobre login autenticado.** Falta um usuário de teste; entra quando as
-  migrations estiverem aplicadas. Hoje cobre proteção de rotas e validação.
+- **Nenhuma tela foi aberta em navegador com dados reais durante o
+  desenvolvimento.** A cobertura é forte na camada de dados — 207 testes,
+  incluindo RLS, constraints e as seis operações transacionais — e o build passa,
+  mas isso não substitui percorrer os fluxos na interface. O primeiro uso real é
+  também a primeira validação visual.
+- **E2E não cobre fluxo autenticado.** A suíte do Playwright testa proteção de
+  rotas e validação de formulário sem sessão. Cobrir login, compra, reserva e
+  venda exige um usuário de teste dedicado, que não foi criado para não misturar
+  dado de teste com o projeto de produção.
 - **`npm audit` reporta 3 vulnerabilidades altas** em `postcss` e `sharp`, ambas
   dependências transitivas do próprio Next.js 16.2.12. Não há correção sem
   esperar uma atualização do Next; nenhuma é acionável pelo código da aplicação.
+- **O projeto está dentro do OneDrive.** A sincronização às vezes trava arquivos
+  em `.next` e faz o build falhar com `EPERM`. `rm -rf .next` resolve.
