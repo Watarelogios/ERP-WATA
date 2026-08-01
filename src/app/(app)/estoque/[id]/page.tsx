@@ -297,7 +297,7 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
               {watch.status === "AVAILABLE" ? (
                 <Link
                   href={`/estoque/${watch.id}/reservar`}
-                  className="block rounded-md bg-graphite px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-graphite-dark"
+                  className="block rounded-md border border-border px-4 py-2.5 text-center text-sm font-medium text-graphite hover:bg-surface"
                 >
                   Reservar
                 </Link>
@@ -334,10 +334,15 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
                 </div>
               ) : null}
 
-              {/* Vender chega na Fase 6. */}
-              <p className="pt-1 text-xs text-muted">
-                Vender sera habilitado na Fase 6.
-              </p>
+              {/* Vender vale para disponivel e para reservado. */}
+              {watch.status === "AVAILABLE" || watch.status === "RESERVED" ? (
+                <Link
+                  href={`/estoque/${watch.id}/vender`}
+                  className="block rounded-md bg-graphite px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-graphite-dark"
+                >
+                  Vender
+                </Link>
+              ) : null}
             </CardContent>
           </Card>
         </div>

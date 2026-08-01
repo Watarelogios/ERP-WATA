@@ -1003,6 +1003,10 @@ export type Database = {
         Args: { p_reservation_id: string; p_status?: unknown; p_destino_sinal?: unknown; p_motivo?: string }
         Returns: { watch_status: unknown; transaction_id: string; credit_movement_id: string }[]
       }
+      complete_sale: {
+        Args: { p_watch_id: string; p_client_id: string; p_valor_venda: number; p_origem?: string; p_forma_pagamento?: string; p_data_venda?: string }
+        Returns: { sale_id: string; lucro_bruto: number; lucro_liquido: number; entrada_caixa: number; sinal_aproveitado: number; payout_id: string }[]
+      }
       confirm_purchase: {
         Args: { p_opportunity_id: string; p_valor_fechado: number; p_marca: string; p_modelo: string; p_data_compra?: string; p_supplier_id?: string; p_referencia?: string; p_ano?: number; p_movimento?: unknown; p_diametro_mm?: number; p_mostrador?: string; p_condicao?: string; p_valor_minimo?: number; p_valor_anunciado?: number; p_observacoes?: string }
         Returns: { watch_id: string; wata_id: string; expense_id: string; transaction_id: string }[]
@@ -1018,6 +1022,10 @@ export type Database = {
       next_wata_id: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      pay_consignment_payout: {
+        Args: { p_payout_id: string; p_data_pagamento?: string; p_forma_pagamento?: string; p_comprovante_path?: string }
+        Returns: { transaction_id: string; valor: number }[]
       }
       recalc_sale_profit: {
         Args: { p_sale_id: string }
