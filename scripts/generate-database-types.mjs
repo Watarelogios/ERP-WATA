@@ -141,7 +141,9 @@ async function main() {
   `);
 
   const functions = await db.query(`
-    select p.proname as name
+    select p.proname as name,
+           pg_get_function_arguments(p.oid) as args,
+           pg_get_function_result(p.oid) as result
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prokind = 'f'
@@ -149,6 +151,70 @@ async function main() {
       and p.proname not in ('set_updated_at', 'handle_new_user', 'prevent_wata_id_change')
     order by p.proname
   `);
+
+  /*
+   * Chaves estrangeiras: o supabase-js resolve joins aninhados (ex.:
+   * `photos:watch_photos ( ... )`) pelas Relationships; sem elas o join tipa
+   * como erro.
+   */
+  const foreignKeys = await db.query(`
+    select
+      c.conname as name,
+      src.relname as table_name,
+      (select array_agg(a.attname order by k.ord)
+         from unnest(c.conkey) with ordinality as k(attnum, ord)
+         join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum
+      ) as columns,
+      dst.relname as referenced_table,
+      (select array_agg(a.attname order by k.ord)
+         from unnest(c.confkey) with ordinality as k(attnum, ord)
+         join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k.attnum
+      ) as referenced_columns,
+      exists (
+        select 1 from pg_index i
+        where i.indrelid = c.conrelid and i.indisunique
+          -- Indice parcial (ex.: uma capa por relogio) nao torna a relacao 1:1.
+          and i.indpred is null
+          and (select array_agg(x order by x) from unnest(i.indkey::int2[]) x)
+            = (select array_agg(x order by x) from unnest(c.conkey) x)
+      ) as is_one_to_one
+    from pg_constraint c
+    join pg_class src on src.oid = c.conrelid
+    join pg_class dst on dst.oid = c.confrelid
+    join pg_namespace n on n.oid = src.relnamespace
+    join pg_namespace dn on dn.oid = dst.relnamespace
+    where c.contype = 'f' and n.nspname = 'public' and dn.nspname = 'public'
+    order by src.relname, c.conname
+  `);
+
+  const fksByTable = new Map();
+  for (const fk of foreignKeys.rows) {
+    if (!fksByTable.has(fk.table_name)) fksByTable.set(fk.table_name, []);
+    fksByTable.get(fk.table_name).push(fk);
+  }
+
+  function relationshipsBlock(name) {
+    const fks = fksByTable.get(name) ?? [];
+
+    if (fks.length === 0) {
+      return "        Relationships: []";
+    }
+
+    const items = fks
+      .map(
+        (fk) =>
+          `          {\n` +
+          `            foreignKeyName: "${fk.name}"\n` +
+          `            columns: [${fk.columns.map((col) => `"${col}"`).join(", ")}]\n` +
+          `            isOneToOne: ${fk.is_one_to_one}\n` +
+          `            referencedRelation: "${fk.referenced_table}"\n` +
+          `            referencedColumns: [${fk.referenced_columns.map((col) => `"${col}"`).join(", ")}]\n` +
+          `          }`,
+      )
+      .join(",\n");
+
+    return `        Relationships: [\n${items},\n        ]`;
+  }
 
   const byTable = new Map();
   for (const column of columns.rows) {
@@ -181,7 +247,12 @@ async function main() {
       .join("\n");
 
     if (kind === "view") {
-      return `      ${name}: {\n        Row: {\n${row}\n        }\n      }`;
+      return (
+        `      ${name}: {\n` +
+        `        Row: {\n${row}\n        }\n` +
+        `${relationshipsBlock(name)}\n` +
+        `      }`
+      );
     }
 
     const insert = cols
@@ -206,6 +277,7 @@ async function main() {
       `        Row: {\n${row}\n        }\n` +
       `        Insert: {\n${insert}\n        }\n` +
       `        Update: {\n${update}\n        }\n` +
+      `${relationshipsBlock(name)}\n` +
       `      }`
     );
   }
@@ -227,8 +299,41 @@ async function main() {
     )
     .join("\n");
 
+  // Tipos SQL simples -> TypeScript, para args e retorno das funcoes.
+  function sqlToTs(sqlType) {
+    const base = sqlType.replace(/^setof /, "").trim();
+    if (/^(text|uuid|character|date|timestamp)/.test(base)) return "string";
+    if (/^(numeric|integer|bigint|smallint|real|double)/.test(base)) {
+      return "number";
+    }
+    if (base === "boolean") return "boolean";
+    if (/^(json|jsonb)$/.test(base)) return "Json";
+    if (base === "void") return "undefined";
+    return "unknown";
+  }
+
   const functionBlock = functions.rows
-    .map((row) => `      ${row.name}: unknown`)
+    .map((row) => {
+      const args = row.args
+        ? row.args.split(", ").map((arg) => {
+            // "p_watch_id uuid" ou "p_sale_id uuid DEFAULT NULL::uuid"
+            const [nome, tipo] = arg.trim().split(/\s+/);
+            const opcional = /DEFAULT/i.test(arg);
+            return `${nome}${opcional ? "?" : ""}: ${sqlToTs(tipo ?? "unknown")}`;
+          })
+        : [];
+
+      const argsBlock = args.length
+        ? `{ ${args.join("; ")} }`
+        : "Record<PropertyKey, never>";
+
+      return (
+        `      ${row.name}: {\n` +
+        `        Args: ${argsBlock}\n` +
+        `        Returns: ${sqlToTs(row.result)}\n` +
+        `      }`
+      );
+    })
     .join("\n");
 
   const output = `/**

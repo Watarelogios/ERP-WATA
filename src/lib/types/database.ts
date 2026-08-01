@@ -62,6 +62,7 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
+        Relationships: []
       }
       consignment_payouts: {
         Row: {
@@ -106,6 +107,29 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "consignment_payouts_consignment_id_fkey"
+            columns: ["consignment_id"]
+            isOneToOne: false
+            referencedRelation: "consignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consignment_payouts_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consignment_payouts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       consignments: {
         Row: {
@@ -150,6 +174,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "consignments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consignments_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customer_credit_movements: {
         Row: {
@@ -185,6 +225,29 @@ export type Database = {
           motivo?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "customer_credit_movements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_movements_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_credit_movements_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
@@ -229,6 +292,29 @@ export type Database = {
           updated_at?: string
           financial_transaction_id?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_financial_transaction_fk"
+            columns: ["financial_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_transactions: {
         Row: {
@@ -288,6 +374,50 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "consignment_payouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -314,6 +444,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       purchase_opportunities: {
         Row: {
@@ -370,6 +501,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_opportunities_purchased_watch_id_fkey"
+            columns: ["purchased_watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_opportunities_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reservations: {
         Row: {
@@ -418,6 +565,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales: {
         Row: {
@@ -465,6 +628,29 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: true
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       settings: {
         Row: {
@@ -506,6 +692,7 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       suppliers: {
         Row: {
@@ -550,6 +737,7 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
+        Relationships: []
       }
       watch_photos: {
         Row: {
@@ -582,6 +770,15 @@ export type Database = {
           alt_text?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "watch_photos_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       watch_status_history: {
         Row: {
@@ -614,6 +811,15 @@ export type Database = {
           actor_id?: string | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "watch_status_history_watch_id_fkey"
+            columns: ["watch_id"]
+            isOneToOne: false
+            referencedRelation: "watches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       watches: {
         Row: {
@@ -691,6 +897,15 @@ export type Database = {
           updated_at?: string
           deleted_at?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "watches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -703,6 +918,7 @@ export type Database = {
           dias_restantes: number | null
           valor: number | null
         }
+        Relationships: []
       }
       customer_credit_balances: {
         Row: {
@@ -711,6 +927,7 @@ export type Database = {
           nome: string | null
           saldo: number | null
         }
+        Relationships: []
       }
       dashboard_summary: {
         Row: {
@@ -726,6 +943,7 @@ export type Database = {
           total_vendido: number | null
           repasses_pendentes: number | null
         }
+        Relationships: []
       }
       monthly_sales_profit: {
         Row: {
@@ -735,6 +953,7 @@ export type Database = {
           receita: number | null
           lucro: number | null
         }
+        Relationships: []
       }
       sales_by_origin: {
         Row: {
@@ -743,6 +962,7 @@ export type Database = {
           quantidade: number | null
           valor: number | null
         }
+        Relationships: []
       }
       stock_aging: {
         Row: {
@@ -758,6 +978,7 @@ export type Database = {
           dias_em_estoque: number | null
           parado: boolean | null
         }
+        Relationships: []
       }
       stock_valuation: {
         Row: {
@@ -774,14 +995,30 @@ export type Database = {
           valor_anunciado: number | null
           despesas_vinculadas: number | null
         }
+        Relationships: []
       }
     }
     Functions: {
-      consignment_payout_amount: unknown
-      next_wata_id: unknown
-      recalc_sale_profit: unknown
-      sale_gross_profit: unknown
-      watch_linked_expenses: unknown
+      consignment_payout_amount: {
+        Args: { p_sale_id: string }
+        Returns: number
+      }
+      next_wata_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      recalc_sale_profit: {
+        Args: { p_sale_id: string }
+        Returns: undefined
+      }
+      sale_gross_profit: {
+        Args: { p_sale_id: string }
+        Returns: number
+      }
+      watch_linked_expenses: {
+        Args: { p_watch_id: string; p_sale_id?: string }
+        Returns: number
+      }
     }
     Enums: {
       consignment_mode: "FIXED_PAYOUT" | "WATA_PERCENTAGE"
