@@ -312,6 +312,36 @@ async function main() {
     return "unknown";
   }
 
+  /**
+   * Retorno da funcao.
+   *
+   * `returns table (...)` produz um conjunto de linhas: o supabase-js entrega
+   * um array. Sem tratar esse caso, toda RPC transacional (Secao 13) tiparia
+   * como `unknown` e o resultado precisaria de cast no ponto de uso.
+   */
+  function returnsToTs(result) {
+    const table = result?.match(/^TABLE\((.+)\)$/is);
+
+    if (table) {
+      const campos = table[1]
+        .split(",")
+        .map((campo) => {
+          const [nome, ...tipo] = campo.trim().split(/\s+/);
+          return `${nome}: ${sqlToTs(tipo.join(" "))}`;
+        })
+        .join("; ");
+
+      return `{ ${campos} }[]`;
+    }
+
+    // `setof x` tambem devolve varias linhas.
+    if (/^setof /i.test(result ?? "")) {
+      return `${sqlToTs(result)}[]`;
+    }
+
+    return sqlToTs(result ?? "unknown");
+  }
+
   const functionBlock = functions.rows
     .map((row) => {
       const args = row.args
@@ -330,7 +360,7 @@ async function main() {
       return (
         `      ${row.name}: {\n` +
         `        Args: ${argsBlock}\n` +
-        `        Returns: ${sqlToTs(row.result)}\n` +
+        `        Returns: ${returnsToTs(row.result)}\n` +
         `      }`
       );
     })

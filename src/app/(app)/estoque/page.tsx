@@ -5,6 +5,7 @@ import Link from "next/link";
 import { WatchCard } from "@/components/domain/watch-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
@@ -31,30 +32,6 @@ const SORT_OPTIONS = [
   { value: "preco-asc", label: "Preco (menor)" },
   { value: "marca", label: "Marca (A-Z)" },
 ];
-
-function FilterChip({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "true" : undefined}
-      className={
-        active
-          ? "rounded-full bg-graphite px-3 py-1.5 text-xs font-medium text-white"
-          : "rounded-full border border-border bg-white px-3 py-1.5 text-xs font-medium text-graphite hover:bg-surface"
-      }
-    >
-      {children}
-    </Link>
-  );
-}
 
 export default async function EstoquePage({ searchParams }: PageProps) {
   await requireUser();

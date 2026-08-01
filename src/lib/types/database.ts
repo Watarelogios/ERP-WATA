@@ -999,6 +999,10 @@ export type Database = {
       }
     }
     Functions: {
+      confirm_purchase: {
+        Args: { p_opportunity_id: string; p_valor_fechado: number; p_marca: string; p_modelo: string; p_data_compra?: string; p_supplier_id?: string; p_referencia?: string; p_ano?: number; p_movimento?: unknown; p_diametro_mm?: number; p_mostrador?: string; p_condicao?: string; p_valor_minimo?: number; p_valor_anunciado?: number; p_observacoes?: string }
+        Returns: { watch_id: string; wata_id: string; expense_id: string; transaction_id: string }[]
+      }
       consignment_payout_amount: {
         Args: { p_sale_id: string }
         Returns: number
