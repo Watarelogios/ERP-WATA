@@ -199,3 +199,25 @@ export async function listSupplierOptions(): Promise<
 
   return data ?? [];
 }
+
+/** Clientes ativos para selects (reserva, venda). */
+export async function listClientOptions(): Promise<
+  Array<{ id: string; nome: string }>
+> {
+  await requireUser();
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, nome")
+    .is("deleted_at", null)
+    .eq("ativo", true)
+    .order("nome");
+
+  if (error) {
+    console.error("[wata] listClientOptions", error.message);
+    return [];
+  }
+
+  return data ?? [];
+}

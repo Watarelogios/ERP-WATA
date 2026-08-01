@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CancelReservationDialog } from "@/components/domain/cancel-reservation-dialog";
 import { PhotoManager } from "@/components/domain/photo-manager";
 import { PageHeader } from "@/components/layout/page-header";
 import { Alert } from "@/components/ui/alert";
@@ -20,6 +21,7 @@ import {
   WATCH_TYPE,
 } from "@/lib/labels";
 import { formatBRL, toCents } from "@/lib/money";
+import { getActiveReservationForWatch } from "@/lib/queries/reservations";
 import { getWatch } from "@/lib/queries/watches";
 import { signPhotoUrls } from "@/lib/storage/photos";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -54,6 +56,12 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
   if (!watch) {
     notFound();
   }
+
+  // So consulta a reserva quando o relogio esta de fato reservado.
+  const activeReservation =
+    watch.status === "RESERVED"
+      ? await getActiveReservationForWatch(watch.id)
+      : null;
 
   const supabase = await createSupabaseServerClient();
   const photoUrls = await signPhotoUrls(
@@ -285,10 +293,50 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
                 Editar cadastro
               </Link>
 
-              {/* Reservar e Vender chegam nas Fases 5 e 6. */}
+              {/* Reservar so faz sentido para item disponivel. */}
+              {watch.status === "AVAILABLE" ? (
+                <Link
+                  href={`/estoque/${watch.id}/reservar`}
+                  className="block rounded-md bg-graphite px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-graphite-dark"
+                >
+                  Reservar
+                </Link>
+              ) : null}
+
+              {watch.status === "RESERVED" && activeReservation ? (
+                <div className="rounded-md border border-border bg-surface p-3">
+                  <p className="text-xs text-muted">Reservado para</p>
+                  <p className="text-sm font-medium text-graphite-dark">
+                    {activeReservation.client?.nome ?? "Cliente removido"}
+                  </p>
+                  <dl className="mt-2 space-y-1 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">Combinado</dt>
+                      <dd className="tabular-nums" data-money>
+                        {formatBRL(toCents(activeReservation.valor_combinado))}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">Saldo restante</dt>
+                      <dd className="font-medium tabular-nums" data-money>
+                        {formatBRL(toCents(activeReservation.saldo_restante))}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-3">
+                    <CancelReservationDialog
+                      reservationId={activeReservation.id}
+                      valorSinalCents={toCents(activeReservation.valor_sinal)}
+                      subject={`${watch.marca} ${watch.modelo} · ${watch.wata_id}`}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Vender chega na Fase 6. */}
               <p className="pt-1 text-xs text-muted">
-                Reservar (Fase 5) e Vender (Fase 6) serao habilitados nas
-                proximas etapas.
+                Vender sera habilitado na Fase 6.
               </p>
             </CardContent>
           </Card>

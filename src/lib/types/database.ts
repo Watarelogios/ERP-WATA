@@ -999,6 +999,10 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_reservation: {
+        Args: { p_reservation_id: string; p_status?: unknown; p_destino_sinal?: unknown; p_motivo?: string }
+        Returns: { watch_status: unknown; transaction_id: string; credit_movement_id: string }[]
+      }
       confirm_purchase: {
         Args: { p_opportunity_id: string; p_valor_fechado: number; p_marca: string; p_modelo: string; p_data_compra?: string; p_supplier_id?: string; p_referencia?: string; p_ano?: number; p_movimento?: unknown; p_diametro_mm?: number; p_mostrador?: string; p_condicao?: string; p_valor_minimo?: number; p_valor_anunciado?: number; p_observacoes?: string }
         Returns: { watch_id: string; wata_id: string; expense_id: string; transaction_id: string }[]
@@ -1006,6 +1010,10 @@ export type Database = {
       consignment_payout_amount: {
         Args: { p_sale_id: string }
         Returns: number
+      }
+      create_reservation: {
+        Args: { p_watch_id: string; p_client_id: string; p_valor_combinado: number; p_validade: string; p_valor_sinal?: number; p_data_sinal?: string; p_forma_pagamento?: string }
+        Returns: { reservation_id: string; watch_status: unknown; saldo_restante: number }[]
       }
       next_wata_id: {
         Args: Record<PropertyKey, never>
