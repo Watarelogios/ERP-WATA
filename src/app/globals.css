@@ -1,26 +1,106 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Design system WATA — branco e grafite.
+ * As fotografias dos relogios recebem o maior destaque; dourado nao faz parte
+ * da identidade. Tokens conforme a Secao 16 da especificacao.
+ */
+@theme {
+  --color-graphite: #303236;
+  --color-graphite-dark: #202124;
+  --color-surface: #f4f5f6;
+  --color-border: #d0d5dd;
+
+  /* Texto secundario com contraste AA sobre branco (5.9:1). */
+  --color-muted: #5f6368;
+
+  --color-success: #2e7d32;
+  --color-success-surface: #eaf3ea;
+  --color-warning: #a86500;
+  --color-warning-surface: #fdf3e6;
+  --color-danger: #b42318;
+  --color-danger-surface: #fdecea;
+  --color-info: #175cd3;
+  --color-info-surface: #eaf0fc;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Raio moderado: cards discretos, sem sombra pesada. */
+  --radius-card: 0.625rem;
+
+  /* Alvo minimo de toque (44px) conforme Secao 16.2. */
+  --spacing-touch: 2.75rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  /*
+   * Tailwind v4 usa currentColor como cor de borda padrao. O padrao WATA e o
+   * token --color-border, entao ele e restaurado aqui.
+   */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: var(--color-graphite-dark);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--color-graphite);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Foco sempre visivel — requisito de acessibilidade, nao apenas estetico. */
+  :focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Valores financeiros usam algarismos tabulares para alinhar colunas. */
+  [data-money],
+  th[data-numeric],
+  td[data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::after,
+    ::before {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility skeleton {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-card);
+  animation: wata-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes wata-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }

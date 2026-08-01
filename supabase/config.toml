@@ -1,0 +1,25 @@
+# Configuracao da Supabase CLI.
+# project_id identifica o projeto ao rodar `supabase link`.
+
+project_id = "erp-wata"
+
+[db]
+# Versao do Postgres usada pelo projeto hospedado.
+major_version = 17
+
+[db.seed]
+# O seed roda apenas em ambiente local, nunca contra producao.
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+# Ajuste para o dominio de producao ao publicar.
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/auth/confirm"
+]
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
