@@ -86,6 +86,13 @@ export function WatchForm({ suppliers, defaults, editAction }: WatchFormProps) {
   const [tipo, setTipo] = useState<"OWNED" | "CONSIGNED">(
     defaults?.tipo ?? "OWNED",
   );
+
+  /*
+   * Desmarcado por padrao: o primeiro uso do sistema costuma ser cadastrar o
+   * estoque que ja existe, cujo dinheiro saiu antes. Marcar por engano
+   * derrubaria o caixa sem motivo.
+   */
+  const [lancarNoCaixa, setLancarNoCaixa] = useState(false);
   const [modalidade, setModalidade] = useState<
     "FIXED_PAYOUT" | "WATA_PERCENTAGE"
   >(defaults?.consignacao?.modalidade ?? "FIXED_PAYOUT");
@@ -353,6 +360,31 @@ export function WatchForm({ suppliers, defaults, editAction }: WatchFormProps) {
             />
           </Field>
         </CardContent>
+
+        {tipo === "OWNED" ? (
+          <CardContent className="border-t border-border pt-4">
+            <label className="flex min-h-touch cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                name="lancar_no_caixa"
+                checked={lancarNoCaixa}
+                onChange={(event) => setLancarNoCaixa(event.target.checked)}
+                className="mt-0.5 size-5 shrink-0 rounded border-border accent-graphite"
+              />
+              <span className="text-sm">
+                <span className="font-medium text-graphite-dark">
+                  Lancar a compra no caixa agora
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">
+                  Marque se voce pagou por este relogio agora. Uma saida
+                  confirmada no valor de compra e lancada junto com o cadastro.
+                  Deixe desmarcado para estoque que voce ja tinha antes do
+                  sistema — esse dinheiro saiu antes.
+                </span>
+              </span>
+            </label>
+          </CardContent>
+        ) : null}
       </Card>
 
       {tipo === "CONSIGNED" ? (

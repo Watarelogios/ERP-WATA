@@ -99,6 +99,14 @@ export const ownedWatchSchema = refineMinimoAnunciado(
   baseWatchSchema.extend({
     tipo: z.literal("OWNED"),
     valor_compra: moneyField({ required: true, label: "valor de compra" }),
+    /*
+     * Marca a compra feita agora, que precisa sair do caixa. Estoque que ja
+     * existia antes do sistema fica desmarcado: o dinheiro saiu antes.
+     */
+    lancar_no_caixa: z
+      .string()
+      .optional()
+      .transform((value) => value === "on" || value === "true"),
   }),
 );
 

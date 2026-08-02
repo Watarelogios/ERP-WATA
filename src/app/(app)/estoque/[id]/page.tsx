@@ -49,7 +49,7 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
   await requireUser();
 
   const { id } = await props.params;
-  const { nova } = await props.searchParams;
+  const { nova, caixa } = await props.searchParams;
 
   const watch = await getWatch(id);
 
@@ -104,8 +104,14 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
 
       {nova === "1" ? (
         <Alert tone="success" title="Relogio cadastrado" className="mb-4">
-          Codigo {watch.wata_id} gerado. Agora adicione as fotos — a primeira
-          vira a capa automaticamente.
+          Codigo {watch.wata_id} gerado.{" "}
+          {/* Confirma o efeito no caixa: operacao financeira nao pode ser silenciosa. */}
+          {caixa === "1" && watch.valor_compra !== null ? (
+            <>
+              A saida de {money(watch.valor_compra)} foi lancada no caixa.{" "}
+            </>
+          ) : null}
+          Agora adicione as fotos — a primeira vira a capa automaticamente.
         </Alert>
       ) : null}
 

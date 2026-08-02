@@ -137,6 +137,7 @@ export async function createWatchAction(
 
   const data = parsed.data;
   let createdWatchId: string;
+  const lancouNoCaixa = data.tipo === "OWNED" && data.lancar_no_caixa;
 
   try {
     const { supabase, user } = await requireContext();
@@ -203,6 +204,30 @@ export async function createWatchAction(
         throw consignmentError;
       }
     }
+
+    /*
+     * Compra feita agora: a saida sai do caixa junto com o cadastro.
+     *
+     * A RPC cria despesa e lancamento em uma transacao, com chave de
+     * idempotencia amarrada ao relogio. Se falhar, o cadastro e desfeito — um
+     * relogio comprado hoje sem a saida correspondente deixaria o caixa
+     * mostrando dinheiro que ja nao existe.
+     */
+    if (data.tipo === "OWNED" && data.lancar_no_caixa) {
+      const { error: purchaseError } = await supabase.rpc(
+        "register_watch_purchase",
+        {
+          p_watch_id: watch.id,
+          p_data_compra: data.data_entrada ?? undefined,
+        },
+      );
+
+      if (purchaseError) {
+        await supabase.from("watches").delete().eq("id", watch.id);
+
+        throw purchaseError;
+      }
+    }
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return { message: error.message };
@@ -215,14 +240,21 @@ export async function createWatchAction(
     );
   }
 
-  revalidatePath("/estoque");
+  // Com lancamento no caixa, dashboard e financeiro tambem mudam.
+  if (lancouNoCaixa) {
+    revalidatePath("/", "layout");
+  } else {
+    revalidatePath("/estoque");
+  }
 
   /*
    * O redirecionamento leva ao detalhe, onde o upload de fotos acontece.
    * Fotos fora da criacao: uma falha de upload nao pode invalidar o cadastro
    * (Secao 18).
    */
-  redirect(`/estoque/${createdWatchId}?nova=1`);
+  redirect(
+    `/estoque/${createdWatchId}?nova=1${lancouNoCaixa ? "&caixa=1" : ""}`,
+  );
 }
 
 export type WatchEditFormState = FormState<

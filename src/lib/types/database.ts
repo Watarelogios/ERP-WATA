@@ -1031,6 +1031,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: undefined
       }
+      register_watch_purchase: {
+        Args: { p_watch_id: string; p_data_compra?: string }
+        Returns: { expense_id: string; transaction_id: string; valor: number }[]
+      }
       reverse_financial_transaction: {
         Args: { p_transaction_id: string; p_motivo?: string }
         Returns: { transaction_id: string; expense_id: string }[]
