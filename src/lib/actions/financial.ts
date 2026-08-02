@@ -17,6 +17,7 @@ import {
 
 const INCOME_CATEGORIES = ["OTHER_INCOME"] as const;
 const EXPENSE_CATEGORIES = [
+  "PURCHASE",
   "SHIPPING",
   "SERVICE",
   "STRAP",
@@ -28,9 +29,15 @@ const EXPENSE_CATEGORIES = [
 /**
  * Lancamento avulso.
  *
- * Categorias de operacao (venda, sinal, compra, repasse) ficam de fora: elas
- * nascem das RPCs, com vinculo e chave de idempotencia. Permitir cria-las a
- * mao abriria caminho para caixa e estoque divergirem.
+ * SALE, RESERVATION_DEPOSIT, RETAINED_DEPOSIT e PAYOUT ficam de fora: nascem
+ * das RPCs com vinculo e chave de idempotencia, e cria-las a mao permitiria
+ * caixa, estoque e repasse divergirem.
+ *
+ * PURCHASE e permitida porque cadastrar um relogio direto no estoque nao lanca
+ * saida nenhuma — comportamento correto para o estoque que ja existia antes do
+ * sistema, mas que deixaria sem registro a compra feita hoje. A categoria e
+ * ignorada no calculo de lucro do item (ver watch_linked_expenses), entao ela
+ * afeta o caixa sem contaminar a margem.
  */
 const manualTransactionSchema = z
   .object({

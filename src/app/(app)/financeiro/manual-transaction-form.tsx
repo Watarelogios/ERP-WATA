@@ -21,13 +21,18 @@ const INITIAL_STATE: ManualTransactionFormState = {};
 /**
  * Categorias permitidas no lancamento avulso.
  *
- * Venda, sinal, compra e repasse ficam de fora: nascem das operacoes, com
- * vinculo e chave de idempotencia. Criar essas categorias a mao permitiria
- * caixa e estoque divergirem.
+ * Venda, sinal e repasse ficam de fora: nascem das operacoes, com vinculo e
+ * chave de idempotencia. Criar essas categorias a mao permitiria caixa,
+ * estoque e repasse divergirem.
+ *
+ * Compra de relogio entra porque cadastrar um item direto no estoque nao lanca
+ * saida — o que e correto para estoque antigo, mas deixaria a compra de hoje
+ * sem registro no caixa.
  */
 const CATEGORIAS = {
   INCOME: [{ value: "OTHER_INCOME", label: "Outras entradas" }],
   EXPENSE: [
+    { value: "PURCHASE", label: "Compra de relogio" },
     { value: "META_ADS", label: "Meta Ads" },
     { value: "SHIPPING", label: "Envio" },
     { value: "SERVICE", label: "Servico" },
@@ -40,6 +45,7 @@ const CATEGORIAS = {
 export function ManualTransactionForm({ hoje }: { hoje: string }) {
   const [aberto, setAberto] = useState(false);
   const [direcao, setDirecao] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const [categoria, setCategoria] = useState<string>("PURCHASE");
   const [state, action, pending] = useActionState(
     createManualTransactionAction,
     INITIAL_STATE,
@@ -98,9 +104,12 @@ export function ManualTransactionForm({ hoje }: { hoje: string }) {
                   <Select
                     name="direcao"
                     value={direcao}
-                    onChange={(event) =>
-                      setDirecao(event.target.value as "INCOME" | "EXPENSE")
-                    }
+                    onChange={(event) => {
+                      const proxima = event.target.value as "INCOME" | "EXPENSE";
+                      setDirecao(proxima);
+                      // A categoria anterior pode nao existir no novo tipo.
+                      setCategoria(CATEGORIAS[proxima][0].value);
+                    }}
                   >
                     <option value="EXPENSE">Saida</option>
                     <option value="INCOME">Entrada</option>
@@ -109,7 +118,11 @@ export function ManualTransactionForm({ hoje }: { hoje: string }) {
 
                 <Field id="categoria" label="Categoria">
                   {/* A lista muda com o tipo: categoria de saida nao vira entrada. */}
-                  <Select name="categoria" key={direcao}>
+                  <Select
+                    name="categoria"
+                    value={categoria}
+                    onChange={(event) => setCategoria(event.target.value)}
+                  >
                     {CATEGORIAS[direcao].map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -137,11 +150,27 @@ export function ManualTransactionForm({ hoje }: { hoje: string }) {
                 </Field>
               </div>
 
+              {/*
+                A saida da compra feita por /compras ja e lancada pela propria
+                operacao. Sem este aviso, o caixa seria debitado duas vezes.
+              */}
+              {categoria === "PURCHASE" ? (
+                <Alert tone="warning">
+                  Use apenas para relogio cadastrado direto no estoque. Se a
+                  compra passou por <strong>Compras</strong>, a saida ja foi
+                  lancada e registrar de novo debita o caixa duas vezes.
+                </Alert>
+              ) : null}
+
               <Field id="descricao" label="Descricao">
                 <Input
                   name="descricao"
                   maxLength={300}
-                  placeholder="Ex.: campanha de alcance de maio"
+                  placeholder={
+                    categoria === "PURCHASE"
+                      ? "Ex.: compra do Seiko SKX007 - WATA-0003"
+                      : "Ex.: campanha de alcance de maio"
+                  }
                   {...fieldAria("descricao", {})}
                 />
               </Field>

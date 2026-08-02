@@ -87,6 +87,49 @@ describe("financeiro", () => {
     });
   });
 
+  describe("compra de relogio lancada a mao", () => {
+    it("reduz o caixa", async () => {
+      const antes = await caixa();
+
+      await lancar("EXPENSE", "PURCHASE", 1500);
+
+      expect(await caixa()).toBe(antes - 1500);
+    });
+
+    it("nao contamina a margem do relogio", async () => {
+      /*
+       * A categoria PURCHASE fica de fora de watch_linked_expenses: o custo do
+       * item ja e o valor_compra. Um lancamento avulso de compra pode existir
+       * sem reduzir o lucro duas vezes.
+       */
+      const clientId = await createClient(ctx.db, owner, "Cliente margem");
+      const watch = await createWatch(ctx.db, owner, { valorCompra: 1000 });
+
+      const transacaoId = await lancar("EXPENSE", "PURCHASE", 1000);
+
+      await ctx.db.query(
+        `insert into public.expenses
+           (owner_id, watch_id, categoria, valor, status, financial_transaction_id)
+         values ($1, $2, 'PURCHASE', 1000, 'CONFIRMED', $3)`,
+        [owner, watch.id, transacaoId],
+      );
+
+      const sale = await ctx.db.query<{ id: string }>(
+        `insert into public.sales (owner_id, watch_id, client_id, valor_venda)
+         values ($1, $2, $3, 2500) returning id`,
+        [owner, watch.id, clientId],
+      );
+
+      const lucro = await ctx.db.query<{ lucro_liquido: string }>(
+        "select lucro_liquido from public.sales where id = $1",
+        [sale.rows[0].id],
+      );
+
+      // 2500 - 1000 de compra, e nao 2500 - 1000 - 1000.
+      expect(Number(lucro.rows[0].lucro_liquido)).toBe(1500);
+    });
+  });
+
   describe("estorno", () => {
     it("tira o lancamento do caixa sem apagar o registro", async () => {
       const antes = await caixa();

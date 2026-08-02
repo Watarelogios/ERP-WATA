@@ -125,7 +125,7 @@ export const FINANCIAL_CATEGORY: LabelMap<Enums<"financial_category">> = {
   RESERVATION_DEPOSIT: { label: "Sinal de reserva", tone: "success" },
   RETAINED_DEPOSIT: { label: "Sinal retido", tone: "success" },
   OTHER_INCOME: { label: "Outras entradas", tone: "success" },
-  PURCHASE: { label: "Compra", tone: "danger" },
+  PURCHASE: { label: "Compra de relogio", tone: "danger" },
   SHIPPING: { label: "Envio", tone: "danger" },
   SERVICE: { label: "Servico", tone: "danger" },
   STRAP: { label: "Pulseira", tone: "danger" },
