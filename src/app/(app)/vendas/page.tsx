@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { PayPayoutDialog } from "@/components/domain/pay-payout-dialog";
 import { PageHeader } from "@/components/layout/page-header";
+import { Alert } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 type VendasPageProps = {
-  searchParams: Promise<{ pagina?: string }>;
+  searchParams: Promise<{ pagina?: string; editada?: string }>;
 };
 
 function SaleCard({ row }: { row: SaleRow }) {
@@ -69,6 +70,13 @@ function SaleCard({ row }: { row: SaleRow }) {
       </dl>
 
       <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+        <Link
+          href={`/vendas/${row.id}/editar`}
+          className="font-medium text-info underline-offset-4 hover:underline"
+        >
+          Editar
+        </Link>
+        <span aria-hidden="true">·</span>
         <span>{formatDate(row.data_venda)}</span>
         {row.origem ? (
           <>
@@ -106,6 +114,13 @@ export default async function VendasPage({ searchParams }: VendasPageProps) {
         title="Vendas"
         description="Historico de vendas com cliente, valor, lucro e origem."
       />
+
+      {params.editada === "1" ? (
+        <Alert tone="success" title="Venda atualizada" className="mb-4">
+          Lucro, valor vendido do relogio, caixa e repasse pendente foram
+          recalculados.
+        </Alert>
+      ) : null}
 
       {/* Repasses pendentes sao obrigacao em aberto: aparecem antes do historico. */}
       {pendentes.length > 0 ? (

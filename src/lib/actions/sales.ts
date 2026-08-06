@@ -10,7 +10,11 @@ import {
 } from "@/lib/actions/form-state";
 import { requireContext, UnauthorizedError } from "@/lib/actions/guard";
 import { centsToDatabase } from "@/lib/money";
-import { completeSaleSchema, payPayoutSchema } from "@/lib/validations/sale";
+import {
+  completeSaleSchema,
+  payPayoutSchema,
+  updateSaleSchema,
+} from "@/lib/validations/sale";
 
 function money(cents: number | null): number {
   return cents === null ? 0 : Number(centsToDatabase(cents));
@@ -165,4 +169,85 @@ export async function payPayoutAction(
   revalidatePath("/", "layout");
 
   return { success: true, message: "Repasse registrado e debitado do caixa." };
+}
+
+export type UpdateSaleFormState = FormState<
+  "valor_venda" | "origem" | "forma_pagamento" | "data_venda" | "client_id"
+>;
+
+/**
+ * Edita uma venda ja concluida.
+ *
+ * A RPC recalcula em cascata o que depende do valor: lucro bruto e liquido,
+ * valor vendido do relogio, entrada no caixa (descontando o sinal ja recebido)
+ * e o repasse pendente ao consignante. Em passos separados daqui, uma falha no
+ * meio deixaria esses numeros contando historias diferentes.
+ */
+export async function updateSaleAction(
+  _prevState: UpdateSaleFormState,
+  formData: FormData,
+): Promise<UpdateSaleFormState> {
+  const parsed = updateSaleSchema.safeParse({
+    sale_id: formData.get("sale_id"),
+    valor_venda: formData.get("valor_venda") ?? "",
+    origem: formData.get("origem") ?? "",
+    forma_pagamento: formData.get("forma_pagamento") ?? "",
+    data_venda: formData.get("data_venda") ?? "",
+    client_id: formData.get("client_id") ?? "",
+  });
+
+  if (!parsed.success) {
+    return { errors: z.flattenError(parsed.error).fieldErrors };
+  }
+
+  const data = parsed.data;
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("update_sale", {
+      p_sale_id: data.sale_id,
+      p_valor_venda: money(data.valor_venda),
+      p_origem: data.origem ?? undefined,
+      p_forma_pagamento: data.forma_pagamento ?? undefined,
+      p_data_venda: data.data_venda ?? undefined,
+      p_client_id: data.client_id ?? undefined,
+    });
+
+    if (error) {
+      console.error("[wata] updateSale", error.message);
+
+      /*
+       * A RPC escreve mensagens acionaveis para o usuario (repasse ja pago,
+       * cliente vindo de reserva, valor menor que o sinal).
+       */
+      const conhecida =
+        mensagemDaRpc(error.message) ??
+        (error.message.includes("nao pode ser trocado") ||
+        error.message.includes("repasse deste item ja foi pago")
+          ? error.message
+          : null);
+
+      return {
+        message:
+          conhecida ??
+          "Nao foi possivel salvar a venda. Nenhum valor foi alterado.",
+      };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError(
+      "updateSale",
+      error,
+      "Nao foi possivel salvar a venda. Nenhum valor foi alterado.",
+    );
+  }
+
+  // A edicao mexe em venda, caixa, estoque, repasse e dashboard.
+  revalidatePath("/", "layout");
+
+  redirect("/vendas?editada=1");
 }

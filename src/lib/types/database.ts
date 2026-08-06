@@ -1019,6 +1019,10 @@ export type Database = {
         Args: { p_watch_id: string; p_client_id: string; p_valor_combinado: number; p_validade: string; p_valor_sinal?: number; p_data_sinal?: string; p_forma_pagamento?: string }
         Returns: { reservation_id: string; watch_status: unknown; saldo_restante: number }[]
       }
+      format_brl: {
+        Args: { p_valor: number }
+        Returns: string
+      }
       next_wata_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1042,6 +1046,10 @@ export type Database = {
       sale_gross_profit: {
         Args: { p_sale_id: string }
         Returns: number
+      }
+      update_sale: {
+        Args: { p_sale_id: string; p_valor_venda: number; p_origem?: string; p_forma_pagamento?: string; p_data_venda?: string; p_client_id?: string }
+        Returns: { lucro_bruto: number; lucro_liquido: number; entrada_caixa: number; repasse_ajustado: number }[]
       }
       watch_linked_expenses: {
         Args: { p_watch_id: string; p_sale_id?: string }

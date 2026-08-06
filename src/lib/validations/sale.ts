@@ -20,3 +20,26 @@ export const payPayoutSchema = z.object({
 
 export type CompleteSaleInput = z.infer<typeof completeSaleSchema>;
 export type PayPayoutInput = z.infer<typeof payPayoutSchema>;
+
+/**
+ * Edicao de venda ja concluida.
+ *
+ * O relogio nao entra: trocar o item de uma venda seria desfazer e refazer a
+ * operacao, com efeitos em estoque, reserva e repasse.
+ */
+export const updateSaleSchema = z.object({
+  sale_id: z.uuid({ error: "Venda invalida." }),
+  valor_venda: moneyField({ required: true, label: "valor da venda" }),
+  origem: optionalText(60),
+  forma_pagamento: optionalText(60),
+  data_venda: dateField,
+  client_id: z
+    .string()
+    .trim()
+    .transform((value) => (value === "" ? null : value))
+    .refine((value) => value === null || z.uuid().safeParse(value).success, {
+      error: "Selecione um cliente valido.",
+    }),
+});
+
+export type UpdateSaleInput = z.infer<typeof updateSaleSchema>;
