@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { WataMark } from "@/components/layout/wata-mark";
+import { StoreMark } from "@/components/layout/store-mark";
 import { isActivePath, NAV_ITEMS } from "@/components/layout/nav-items";
 import { cn } from "@/lib/utils/cn";
 
@@ -13,14 +13,20 @@ import { cn } from "@/lib/utils/cn";
  * Todos os modulos ficam visiveis: no desktop nenhuma funcao essencial e
  * escondida atras de menu (Secao 16).
  */
-export function Sidebar() {
+export function Sidebar({
+  nomeLoja,
+  logoUrl,
+}: {
+  nomeLoja: string;
+  logoUrl: string | null;
+}) {
   const pathname = usePathname();
 
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border bg-white lg:flex lg:flex-col">
       <div className="flex h-16 items-center border-b border-border px-5">
         <Link href="/dashboard" aria-label="Ir para o dashboard">
-          <WataMark />
+          <StoreMark nomeLoja={nomeLoja} logoUrl={logoUrl} />
         </Link>
       </div>
 

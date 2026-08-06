@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,12 +36,43 @@ export type SettingsFormProps = {
   firstRun?: boolean;
 };
 
+/**
+ * Previa do logo configurado.
+ *
+ * Usa `img` porque a URL vem do usuario e pode apontar para qualquer host,
+ * enquanto o otimizador do Next exige dominios conhecidos em tempo de build.
+ */
+function LogoPreview({ url }: { url: string }) {
+  const [erro, setErro] = useState(false);
+
+  if (erro) {
+    return (
+      <p className="text-xs text-danger">
+        Nao foi possivel carregar esta imagem. Verifique se a URL esta correta e
+        se o bucket do Supabase e publico.
+      </p>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt="Previa do logo da loja"
+      onError={() => setErro(true)}
+      className="max-h-12 w-auto object-contain"
+    />
+  );
+}
+
 export function SettingsForm({ settings, firstRun }: SettingsFormProps) {
   const [state, action, pending] = useActionState(
     saveSettingsAction,
     INITIAL_STATE,
   );
   const { showToast } = useToast();
+
+  const [logoUrl, setLogoUrl] = useState(settings?.logoUrl ?? "");
 
   const nomeRef = useRef<HTMLInputElement>(null);
   const saldoRef = useRef<HTMLInputElement>(null);
@@ -95,18 +126,30 @@ export function SettingsForm({ settings, firstRun }: SettingsFormProps) {
           <Field
             id="logo_url"
             label="URL do logo"
-            description="Opcional. Deixe em branco para usar a marca tipografica."
+            description="Opcional. O arquivo precisa estar em um bucket publico; deixe em branco para usar a marca tipografica."
           >
             <Input
               name="logo_url"
               type="url"
-              defaultValue={settings?.logoUrl ?? ""}
+              value={logoUrl}
+              onChange={(event) => setLogoUrl(event.target.value)}
               placeholder="https://..."
               {...fieldAria("logo_url", {
-                description: "Opcional.",
+                description: "Precisa estar em bucket publico.",
               })}
             />
           </Field>
+
+          {/*
+            Previa imediata: uma URL errada ou de bucket privado aparece aqui
+            como falha, antes de salvar e ir procurar o logo na navegacao.
+          */}
+          {logoUrl.trim() ? (
+            <div className="rounded-md border border-border bg-surface p-3">
+              <p className="mb-2 text-xs text-muted">Previa do logo</p>
+              <LogoPreview url={logoUrl.trim()} />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

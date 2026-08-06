@@ -83,9 +83,14 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Executa em todas as rotas, exceto arquivos estaticos e imagens.
+     * Executa em todas as rotas, exceto assets e metadata.
      * Manter o proxy amplo e proposital: rotas novas nascem protegidas.
+     *
+     * `icon` e as demais rotas de metadata do Next nao tem extensao no
+     * caminho, entao precisam de excecao propria: sem ela o navegador recebe
+     * um redirecionamento para /login ao buscar o favicon, e a aba fica sem
+     * icone — inclusive na propria tela de login.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image|twitter-image|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

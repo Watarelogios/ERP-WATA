@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { isActivePath, NAV_ITEMS } from "@/components/layout/nav-items";
 import { SignOutButton } from "@/components/layout/sign-out-button";
-import { WataMark } from "@/components/layout/wata-mark";
+import { StoreMark } from "@/components/layout/store-mark";
 
 function useSectionTitle() {
   const pathname = usePathname();
@@ -15,7 +15,15 @@ function useSectionTitle() {
   );
 }
 
-export function AppHeader({ userEmail }: { userEmail: string }) {
+export function AppHeader({
+  userEmail,
+  nomeLoja,
+  logoUrl,
+}: {
+  userEmail: string;
+  nomeLoja: string;
+  logoUrl: string | null;
+}) {
   const title = useSectionTitle();
 
   return (
@@ -26,7 +34,7 @@ export function AppHeader({ userEmail }: { userEmail: string }) {
         className="lg:hidden"
         aria-label="Ir para o dashboard"
       >
-        <WataMark className="text-base" />
+        <StoreMark nomeLoja={nomeLoja} logoUrl={logoUrl} size="sm" />
       </Link>
 
       <h1 className="truncate text-base font-semibold lg:text-lg">{title}</h1>

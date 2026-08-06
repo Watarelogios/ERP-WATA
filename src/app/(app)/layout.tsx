@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { requireUser } from "@/lib/auth/dal";
+import { getSettings } from "@/lib/queries/settings";
 
 /**
  * Layout autenticado.
@@ -13,5 +14,16 @@ import { requireUser } from "@/lib/auth/dal";
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
 
-  return <AppShell userEmail={user.email ?? "Administrador"}>{children}</AppShell>;
+  // Sem configuracao ainda (primeiro acesso), a marca tipografica cobre.
+  const settings = await getSettings();
+
+  return (
+    <AppShell
+      userEmail={user.email ?? "Administrador"}
+      nomeLoja={settings?.nomeLoja ?? "WATA"}
+      logoUrl={settings?.logoUrl ?? null}
+    >
+      {children}
+    </AppShell>
+  );
 }
