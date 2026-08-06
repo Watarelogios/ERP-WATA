@@ -49,7 +49,12 @@ export function StoreMark({
       onError={() => setFalhou(true)}
       className={cn(
         "w-auto object-contain",
-        size === "sm" ? "max-h-7" : "max-h-9",
+        /*
+         * 125% dos tamanhos originais (28px e 36px). Valores explicitos porque
+         * a escala do Tailwind nao tem esses passos; a barra tem 64px de
+         * altura, entao 45px ainda deixa respiro em cima e embaixo.
+         */
+        size === "sm" ? "max-h-[2.1875rem]" : "max-h-[2.8125rem]",
         className,
       )}
     />
