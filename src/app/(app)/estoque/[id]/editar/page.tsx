@@ -11,7 +11,7 @@ import { updateWatchAction } from "@/lib/actions/watches";
 import { requireUser } from "@/lib/auth/dal";
 import { toCents } from "@/lib/money";
 import { listSupplierOptions } from "@/lib/queries/contacts";
-import { getWatch } from "@/lib/queries/watches";
+import { getWatch, isPurchaseRegistered } from "@/lib/queries/watches";
 
 export const metadata: Metadata = {
   title: "Editar relogio",
@@ -23,9 +23,10 @@ export default async function EditarRelogioPage(
   await requireUser();
 
   const { id } = await props.params;
-  const [watch, suppliers] = await Promise.all([
+  const [watch, suppliers, compraJaLancada] = await Promise.all([
     getWatch(id),
     listSupplierOptions(),
+    isPurchaseRegistered(id),
   ]);
 
   if (!watch) {
@@ -85,6 +86,7 @@ export default async function EditarRelogioPage(
         <WatchForm
           suppliers={suppliers}
           defaults={defaults}
+          compraJaLancada={compraJaLancada}
           editAction={editAction}
         />
       </div>

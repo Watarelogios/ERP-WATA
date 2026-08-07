@@ -282,6 +282,10 @@ export async function updateWatchAction(
 ): Promise<WatchEditFormState> {
   const tipo = formData.get("tipo") === "CONSIGNED" ? "CONSIGNED" : "OWNED";
 
+  // Consignado nao tem compra a lancar: o dinheiro e do consignante.
+  const lancarNoCaixa =
+    tipo === "OWNED" && formData.get("lancar_no_caixa") === "on";
+
   const parsed =
     tipo === "OWNED"
       ? ownedWatchSchema.safeParse({
@@ -384,6 +388,52 @@ export async function updateWatchAction(
       error,
       "Nao foi possivel salvar as alteracoes. Tente novamente.",
     );
+  }
+
+  /*
+   * Lancar a compra no caixa a partir da edicao.
+   *
+   * Serve para o relogio cadastrado antes sem debito — a compra existiu, so
+   * nao tinha sido registrada. A RPC e idempotente pela chave amarrada ao
+   * relogio, entao marcar de novo em um item ja lancado nao debita duas vezes:
+   * o erro e detectado e vira mensagem, sem tocar no caixa.
+   */
+  if (lancarNoCaixa) {
+    try {
+      const { supabase } = await requireContext();
+
+      const { error } = await supabase.rpc("register_watch_purchase", {
+        p_watch_id: watchId,
+      });
+
+      if (error) {
+        console.error("[wata] updateWatch/registerPurchase", error.message);
+
+        const jaLancado = error.message.includes(
+          "financial_idempotency_unica",
+        );
+
+        return {
+          message: jaLancado
+            ? "A compra deste relogio ja estava lancada no caixa. As demais alteracoes foram salvas."
+            : "As alteracoes foram salvas, mas nao foi possivel lancar a compra no caixa.",
+        };
+      }
+    } catch (error) {
+      return reportUnexpectedError(
+        "updateWatch/registerPurchase",
+        error,
+        "As alteracoes foram salvas, mas nao foi possivel lancar a compra no caixa.",
+      );
+    }
+
+    // O lancamento mexe em caixa e dashboard, nao so no estoque.
+    revalidatePath("/", "layout");
+
+    return {
+      success: true,
+      message: "Alteracoes salvas e compra lancada no caixa.",
+    };
   }
 
   revalidatePath("/estoque");

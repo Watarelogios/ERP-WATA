@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { ClientSelect } from "@/components/domain/client-select";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -138,20 +139,14 @@ export function SaleForm({
         <Card className="mb-4">
           <CardContent className="space-y-5">
             <Field id="client_id" label="Cliente" error={clientError} required>
-              <Select
+              <ClientSelect
                 name="client_id"
+                clients={clients}
                 defaultValue={reserva?.clientId ?? ""}
                 // Item reservado ja tem cliente definido pela reserva.
                 disabled={Boolean(reserva)}
-                {...fieldAria("client_id", { error: clientError })}
-              >
-                <option value="">Selecione o cliente</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.nome}
-                  </option>
-                ))}
-              </Select>
+                ariaProps={fieldAria("client_id", { error: clientError })}
+              />
             </Field>
 
             {reserva ? (

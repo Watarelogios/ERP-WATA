@@ -227,3 +227,29 @@ export async function getWatch(id: string): Promise<WatchDetail | null> {
       : null,
   };
 }
+
+/**
+ * A compra deste relogio ja foi lancada no caixa?
+ *
+ * Decide se a tela de edicao oferece o lancamento ou apenas informa que ele ja
+ * aconteceu — um checkbox sem esse contexto nao diz se a acao ja foi feita.
+ */
+export async function isPurchaseRegistered(watchId: string): Promise<boolean> {
+  await requireUser();
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("financial_transactions")
+    .select("id")
+    .eq("watch_id", watchId)
+    .eq("categoria", "PURCHASE")
+    .eq("status", "CONFIRMED")
+    .limit(1);
+
+  if (error) {
+    console.error("[wata] isPurchaseRegistered", error.message);
+    return false;
+  }
+
+  return (data ?? []).length > 0;
+}

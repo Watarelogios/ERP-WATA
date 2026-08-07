@@ -64,6 +64,8 @@ export type WatchDefaults = {
 export type WatchFormProps = {
   suppliers: SupplierOption[];
   defaults?: WatchDefaults;
+  /** Compra ja lancada no caixa; so faz sentido na edicao. */
+  compraJaLancada?: boolean;
   /** Server Action de edicao ja ligada ao id; ausente no cadastro. */
   editAction?: (
     state: WatchFormState,
@@ -71,7 +73,12 @@ export type WatchFormProps = {
   ) => Promise<WatchFormState>;
 };
 
-export function WatchForm({ suppliers, defaults, editAction }: WatchFormProps) {
+export function WatchForm({
+  suppliers,
+  defaults,
+  compraJaLancada,
+  editAction,
+}: WatchFormProps) {
   const [state, action, pending] = useActionState(
     editAction ?? createWatchAction,
     INITIAL_STATE,
@@ -361,7 +368,17 @@ export function WatchForm({ suppliers, defaults, editAction }: WatchFormProps) {
           </Field>
         </CardContent>
 
-        {tipo === "OWNED" ? (
+        {tipo === "OWNED" && compraJaLancada ? (
+          <CardContent className="border-t border-border pt-4">
+            {/* Ja lancado: informar em vez de oferecer uma acao sem efeito. */}
+            <p className="text-sm text-muted">
+              A compra deste relogio ja foi lancada no caixa. Para corrigir o
+              valor, estorne o lancamento em Financeiro.
+            </p>
+          </CardContent>
+        ) : null}
+
+        {tipo === "OWNED" && !compraJaLancada ? (
           <CardContent className="border-t border-border pt-4">
             <label className="flex min-h-touch cursor-pointer items-start gap-3">
               <input
@@ -376,10 +393,9 @@ export function WatchForm({ suppliers, defaults, editAction }: WatchFormProps) {
                   Lancar a compra no caixa agora
                 </span>
                 <span className="mt-0.5 block text-xs text-muted">
-                  Marque se voce pagou por este relogio agora. Uma saida
-                  confirmada no valor de compra e lancada junto com o cadastro.
-                  Deixe desmarcado para estoque que voce ja tinha antes do
-                  sistema — esse dinheiro saiu antes.
+                  {editAction
+                    ? "Marque para registrar agora a saida no caixa referente a compra deste relogio. Use quando o item foi cadastrado antes sem o lancamento."
+                    : "Marque se voce pagou por este relogio agora. Uma saida confirmada no valor de compra e lancada junto com o cadastro. Deixe desmarcado para estoque que voce ja tinha antes do sistema — esse dinheiro saiu antes."}
                 </span>
               </span>
             </label>

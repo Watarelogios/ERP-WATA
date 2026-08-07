@@ -222,3 +222,55 @@ export async function setSupplierActiveAction(
     message: ativo ? "Fornecedor reativado." : "Fornecedor inativado.",
   };
 }
+
+export type QuickClientState = FormState<"nome"> & {
+  /** Cliente criado, para a tela ja seleciona-lo sem recarregar. */
+  client?: { id: string; nome: string };
+};
+
+/**
+ * Cadastro rapido de cliente, a partir da reserva ou da venda.
+ *
+ * Pede apenas o nome: interromper uma venda para preencher cidade, telefone e
+ * interesses faz o operador desistir e digitar qualquer coisa. Os demais dados
+ * ficam para a tela de clientes, quando houver tempo.
+ */
+export async function createQuickClientAction(
+  _prevState: QuickClientState,
+  formData: FormData,
+): Promise<QuickClientState> {
+  const nome = String(formData.get("nome") ?? "").trim();
+
+  if (nome.length === 0) {
+    return { errors: { nome: ["Informe o nome do cliente."] } };
+  }
+
+  if (nome.length > 200) {
+    return { errors: { nome: ["Use no maximo 200 caracteres."] } };
+  }
+
+  try {
+    const { supabase, user } = await requireContext();
+
+    const { data, error } = await supabase
+      .from("clients")
+      .insert({ owner_id: user.id, nome })
+      .select("id, nome")
+      .single();
+
+    if (error || !data) {
+      console.error("[wata] createQuickClient", error?.message);
+      return { message: "Nao foi possivel cadastrar o cliente." };
+    }
+
+    revalidatePath("/clientes");
+
+    return { success: true, client: { id: data.id, nome: data.nome } };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("createQuickClient", error);
+  }
+}

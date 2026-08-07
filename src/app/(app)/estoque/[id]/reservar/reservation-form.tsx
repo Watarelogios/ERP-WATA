@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 
+import { ClientSelect } from "@/components/domain/client-select";
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Field, fieldAria } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
-import { Select } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import {
   createReservationAction,
@@ -45,7 +45,6 @@ export function ReservationForm({
     INITIAL_STATE,
   );
 
-  const clientRef = useRef<HTMLSelectElement>(null);
   const [combinadoCents, setCombinadoCents] = useState<number | null>(
     valorAnunciadoCents,
   );
@@ -55,12 +54,6 @@ export function ReservationForm({
   const combinadoError = state.errors?.valor_combinado?.[0];
   const validadeError = state.errors?.validade?.[0];
   const sinalError = state.errors?.valor_sinal?.[0];
-
-  useEffect(() => {
-    if (clientError) {
-      clientRef.current?.focus();
-    }
-  }, [clientError]);
 
   // Saldo que o cliente ainda paga na retirada.
   const saldo = Math.max(0, (combinadoCents ?? 0) - (sinalCents ?? 0));
@@ -72,32 +65,20 @@ export function ReservationForm({
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
 
       {clients.length === 0 ? (
-        <Alert tone="warning" title="Nenhum cliente cadastrado">
-          Uma reserva precisa de um cliente.{" "}
-          <Link href="/clientes/novo" className="underline">
-            Cadastre o cliente
-          </Link>{" "}
-          antes de continuar.
+        <Alert tone="info" title="Nenhum cliente cadastrado">
+          Use o botao + ao lado do campo para cadastrar o cliente sem sair
+          desta tela.
         </Alert>
       ) : null}
 
       <Card>
         <CardContent className="space-y-5">
           <Field id="client_id" label="Cliente" error={clientError} required>
-            <Select
-              ref={clientRef}
+            <ClientSelect
               name="client_id"
-              defaultValue=""
-              disabled={clients.length === 0}
-              {...fieldAria("client_id", { error: clientError })}
-            >
-              <option value="">Selecione o cliente</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.nome}
-                </option>
-              ))}
-            </Select>
+              clients={clients}
+              ariaProps={fieldAria("client_id", { error: clientError })}
+            />
           </Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -185,7 +166,7 @@ export function ReservationForm({
         <Button
           type="submit"
           size="lg"
-          disabled={pending || clients.length === 0}
+          disabled={pending}
         >
           {pending ? <Spinner label="Criando reserva" /> : null}
           {pending ? "Criando reserva..." : "Criar reserva"}
