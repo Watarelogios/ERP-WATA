@@ -335,6 +335,9 @@ export type Database = {
           idempotency_key: string | null
           created_at: string
           updated_at: string
+          parcelamento_id: string | null
+          parcela_numero: number | null
+          parcela_total: number | null
         }
         Insert: {
           id?: string
@@ -354,6 +357,9 @@ export type Database = {
           idempotency_key?: string | null
           created_at?: string
           updated_at?: string
+          parcelamento_id?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
         }
         Update: {
           id?: string
@@ -373,6 +379,9 @@ export type Database = {
           idempotency_key?: string | null
           created_at?: string
           updated_at?: string
+          parcelamento_id?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
         }
         Relationships: [
           {
@@ -1015,6 +1024,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: number
       }
+      create_installment_purchase: {
+        Args: { p_descricao: string; p_valor_total: number; p_parcelas: number; p_primeiro_vencimento?: string; p_categoria?: unknown; p_watch_id?: string }
+        Returns: { parcelamento_id: string; parcela_numero: number; valor: number; vencimento: string }[]
+      }
       create_reservation: {
         Args: { p_watch_id: string; p_client_id: string; p_valor_combinado: number; p_validade: string; p_valor_sinal?: number; p_data_sinal?: string; p_forma_pagamento?: string }
         Returns: { reservation_id: string; watch_status: unknown; saldo_restante: number }[]
@@ -1030,6 +1043,10 @@ export type Database = {
       pay_consignment_payout: {
         Args: { p_payout_id: string; p_data_pagamento?: string; p_forma_pagamento?: string; p_comprovante_path?: string }
         Returns: { transaction_id: string; valor: number }[]
+      }
+      pay_installment: {
+        Args: { p_transaction_id: string; p_data_pagamento?: string }
+        Returns: { valor: number; parcela_numero: number; parcela_total: number }[]
       }
       recalc_sale_profit: {
         Args: { p_sale_id: string }

@@ -160,3 +160,141 @@ export async function reverseTransactionAction(
 
   return { success: true, message: "Lancamento estornado." };
 }
+
+const installmentSchema = z.object({
+  descricao: z
+    .string()
+    .trim()
+    .min(1, { error: "Descreva a compra. Ex.: Tag Heuer ref X." })
+    .max(200, { error: "Use no maximo 200 caracteres." }),
+  valor_total: moneyField({ required: true, label: "valor total" }),
+  parcelas: z
+    .string()
+    .trim()
+    .transform((value) => Number(value))
+    .refine(
+      (value) => Number.isInteger(value) && value >= 2 && value <= 60,
+      { error: "Informe de 2 a 60 parcelas." },
+    ),
+  primeiro_vencimento: dateField,
+  categoria: z.enum([...EXPENSE_CATEGORIES]),
+});
+
+export type InstallmentFormState = FormState<
+  "descricao" | "valor_total" | "parcelas" | "primeiro_vencimento" | "categoria"
+>;
+
+/**
+ * Cria uma compra parcelada.
+ *
+ * As parcelas nascem pendentes: o total devido aparece hoje no extrato, mas o
+ * caixa so e debitado conforme cada uma e paga.
+ */
+export async function createInstallmentPurchaseAction(
+  _prevState: InstallmentFormState,
+  formData: FormData,
+): Promise<InstallmentFormState> {
+  const parsed = installmentSchema.safeParse({
+    descricao: formData.get("descricao"),
+    valor_total: formData.get("valor_total") ?? "",
+    parcelas: formData.get("parcelas") ?? "",
+    primeiro_vencimento: formData.get("primeiro_vencimento") ?? "",
+    categoria: formData.get("categoria") ?? "PURCHASE",
+  });
+
+  if (!parsed.success) {
+    return { errors: z.flattenError(parsed.error).fieldErrors };
+  }
+
+  const data = parsed.data;
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("create_installment_purchase", {
+      p_descricao: data.descricao,
+      p_valor_total: Number(centsToDatabase(data.valor_total ?? 0)),
+      p_parcelas: data.parcelas,
+      p_primeiro_vencimento: data.primeiro_vencimento ?? undefined,
+      p_categoria: data.categoria,
+    });
+
+    if (error) {
+      console.error("[wata] createInstallmentPurchase", error.message);
+
+      const conhecida =
+        error.message.includes("entre 2 e 60") ||
+        error.message.includes("valor total") ||
+        error.message.includes("descricao");
+
+      return {
+        message: conhecida
+          ? error.message
+          : "Nao foi possivel registrar a compra parcelada.",
+      };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("createInstallmentPurchase", error);
+  }
+
+  revalidatePath("/", "layout");
+
+  return {
+    success: true,
+    message: `Compra parcelada em ${data.parcelas}x registrada.`,
+  };
+}
+
+export type PayInstallmentFormState = FormState<"data_pagamento">;
+
+/** Confirma o pagamento de uma parcela, debitando o caixa uma unica vez. */
+export async function payInstallmentAction(
+  _prevState: PayInstallmentFormState,
+  formData: FormData,
+): Promise<PayInstallmentFormState> {
+  const transactionId = String(formData.get("transaction_id") ?? "");
+
+  if (!z.uuid().safeParse(transactionId).success) {
+    return { message: "Parcela invalida." };
+  }
+
+  const dataPagamento = String(formData.get("data_pagamento") ?? "").trim();
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("pay_installment", {
+      p_transaction_id: transactionId,
+      p_data_pagamento: dataPagamento || undefined,
+    });
+
+    if (error) {
+      console.error("[wata] payInstallment", error.message);
+
+      const conhecida =
+        error.message.includes("ja esta como") ||
+        error.message.includes("nao encontrada") ||
+        error.message.includes("nao e uma parcela");
+
+      return {
+        message: conhecida
+          ? error.message
+          : "Nao foi possivel registrar o pagamento da parcela.",
+      };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("payInstallment", error);
+  }
+
+  revalidatePath("/", "layout");
+
+  return { success: true, message: "Parcela paga e debitada do caixa." };
+}

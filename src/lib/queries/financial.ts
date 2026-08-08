@@ -149,3 +149,95 @@ export async function getPeriodTotals(
 
   return { entradasCents, saidasCents, pendentesCents };
 }
+
+export type InstallmentPlan = {
+  parcelamentoId: string;
+  /** Descricao sem o prefixo "Parcela i/N", que se repete em todas. */
+  descricao: string;
+  total: number;
+  pagas: number;
+  totalCents: number;
+  pendenteCents: number;
+  /** Vencimento da proxima parcela em aberto. */
+  proximoVencimento: string | null;
+  proximaParcela: {
+    id: string;
+    numero: number;
+    valorCents: number;
+    vencimento: string;
+  } | null;
+};
+
+/**
+ * Compras parceladas com parcela em aberto.
+ *
+ * Agrupa por parcelamento para a tela mostrar "2 de 5 pagas" em vez de cinco
+ * linhas soltas, e destaca a proxima parcela a vencer.
+ */
+export async function listInstallmentPlans(): Promise<InstallmentPlan[]> {
+  await requireUser();
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("financial_transactions")
+    .select(
+      "id, valor, status, data, descricao, parcelamento_id, parcela_numero, parcela_total",
+    )
+    .not("parcelamento_id", "is", null)
+    .order("parcela_numero", { ascending: true });
+
+  if (error) {
+    console.error("[wata] listInstallmentPlans", error.message);
+    return [];
+  }
+
+  const grupos = new Map<string, InstallmentPlan>();
+
+  for (const row of data ?? []) {
+    const grupoId = String(row.parcelamento_id);
+    const cents = toCents(row.valor);
+
+    let plano = grupos.get(grupoId);
+
+    if (!plano) {
+      plano = {
+        parcelamentoId: grupoId,
+        // "Parcela 1/5 - Tag Heuer ref X" -> "Tag Heuer ref X"
+        descricao: (row.descricao ?? "").replace(/^Parcela \d+\/\d+ - /, ""),
+        total: Number(row.parcela_total ?? 0),
+        pagas: 0,
+        totalCents: 0,
+        pendenteCents: 0,
+        proximoVencimento: null,
+        proximaParcela: null,
+      };
+      grupos.set(grupoId, plano);
+    }
+
+    plano.totalCents += cents;
+
+    if (row.status === "CONFIRMED") {
+      plano.pagas += 1;
+    } else if (row.status === "PENDING") {
+      plano.pendenteCents += cents;
+
+      // As linhas vem ordenadas por numero: a primeira pendente e a proxima.
+      if (!plano.proximaParcela) {
+        plano.proximaParcela = {
+          id: String(row.id),
+          numero: Number(row.parcela_numero ?? 0),
+          valorCents: cents,
+          vencimento: String(row.data),
+        };
+        plano.proximoVencimento = String(row.data);
+      }
+    }
+  }
+
+  // Só interessa o que ainda tem parcela em aberto; o resto vira historico.
+  return [...grupos.values()]
+    .filter((plano) => plano.pendenteCents > 0)
+    .sort((a, b) =>
+      (a.proximoVencimento ?? "").localeCompare(b.proximoVencimento ?? ""),
+    );
+}

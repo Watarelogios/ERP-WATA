@@ -2,7 +2,9 @@ import { Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InstallmentForm } from "@/app/(app)/financeiro/installment-form";
 import { ManualTransactionForm } from "@/app/(app)/financeiro/manual-transaction-form";
+import { PayInstallmentButton } from "@/components/domain/pay-installment-button";
 import { ReverseTransactionButton } from "@/components/domain/reverse-transaction-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +18,7 @@ import { formatBRL, toCents } from "@/lib/money";
 import { getDashboardSummary } from "@/lib/queries/dashboard";
 import {
   getPeriodTotals,
+  listInstallmentPlans,
   listTransactions,
   type TransactionRow,
 } from "@/lib/queries/financial";
@@ -119,12 +122,13 @@ export default async function FinanceiroPage({
 
   const params = await searchParams;
 
-  const [{ rows, total, page, pageSize }, totals, summary, settings] =
+  const [{ rows, total, page, pageSize }, totals, summary, settings, planos] =
     await Promise.all([
       listTransactions(params),
       getPeriodTotals(params),
       getDashboardSummary(),
       getSettings(),
+      listInstallmentPlans(),
     ]);
 
   const current = {
@@ -257,8 +261,77 @@ export default async function FinanceiroPage({
           ) : null}
         </form>
 
-        <ManualTransactionForm hoje={hoje} />
+        <div className="flex flex-wrap gap-2">
+          <InstallmentForm hoje={hoje} />
+          <ManualTransactionForm hoje={hoje} />
+        </div>
       </div>
+
+      {/*
+        Parcelas em aberto sao obrigacao assumida: aparecem antes do extrato,
+        como os repasses pendentes em Vendas.
+      */}
+      {planos.length > 0 ? (
+        <Card className="mb-4 border-warning/30">
+          <CardHeader className="border-warning/30">
+            <CardTitle>Compras parceladas em aberto ({planos.length})</CardTitle>
+            <p className="mt-1 text-sm text-muted">
+              Parcela pendente nao reduz o caixa. O debito acontece ao marcar o
+              pagamento.
+            </p>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            {planos.map((plano) => {
+              const atrasada =
+                plano.proximoVencimento !== null &&
+                plano.proximoVencimento < hoje;
+
+              return (
+                <div
+                  key={plano.parcelamentoId}
+                  className="flex flex-col gap-3 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-graphite-dark">
+                      {plano.descricao}
+                    </p>
+                    <p className="text-xs text-muted">
+                      {plano.pagas} de {plano.total} pagas · falta{" "}
+                      <span className="tabular-nums">
+                        {formatBRL(plano.pendenteCents)}
+                      </span>
+                      {plano.proximaParcela ? (
+                        <>
+                          {" · "}
+                          <span className={atrasada ? "font-medium text-danger" : ""}>
+                            {atrasada ? "venceu em " : "vence em "}
+                            {formatDate(plano.proximaParcela.vencimento)}
+                          </span>
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+
+                  {plano.proximaParcela ? (
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="text-sm font-medium tabular-nums" data-money>
+                        {formatBRL(plano.proximaParcela.valorCents)}
+                      </span>
+
+                      <PayInstallmentButton
+                        transactionId={plano.proximaParcela.id}
+                        hoje={hoje}
+                        label={`Pagar ${plano.proximaParcela.numero}/${plano.total}`}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {filtrosDirecao.map((filtro) => (
