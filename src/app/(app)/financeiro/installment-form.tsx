@@ -34,6 +34,9 @@ const CATEGORIAS = [
  *
  * Reproduz a divisao em centavos que o banco faz: o resto vai na ultima
  * parcela. Mostrar antes evita a surpresa de ver 333,34 na quinta linha.
+ *
+ * Em parcela unica nao ha o que dividir, e repetir "1x de X / Total X" so
+ * ocuparia espaco.
  */
 function preverParcelas(totalCents: number, parcelas: number) {
   if (totalCents <= 0 || parcelas < 2) {
@@ -68,6 +71,7 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
   }, [mensagem, showToast]);
 
   const previa = preverParcelas(totalCents ?? 0, parcelas);
+  const parcelaUnica = parcelas === 1;
 
   const descricaoError = state.errors?.descricao?.[0];
   const valorError = state.errors?.valor_total?.[0];
@@ -77,7 +81,7 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
     <>
       <Button variant="secondary" onClick={() => setAberto(true)}>
         <CalendarClock className="size-4" aria-hidden="true" />
-        Compra parcelada
+        Compra a prazo
       </Button>
 
       {visivel ? (
@@ -97,11 +101,12 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
             className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-white p-5"
           >
             <h2 id="parcelada-titulo" className="text-base font-semibold">
-              Compra parcelada
+              Compra a prazo
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Cada parcela entra como saida pendente. O caixa so e debitado
-              conforme voce marca cada uma como paga.
+              Parcelada ou para pagar de uma vez la na frente. Cada parcela
+              entra como saida pendente, e o caixa so e debitado quando voce
+              marca o pagamento.
             </p>
 
             <form action={action} className="mt-4 space-y-4">
@@ -113,7 +118,11 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
                 id="descricao"
                 label="Descricao"
                 error={descricaoError}
-                description="Aparece em toda parcela, depois de 'Parcela 1/5 - '."
+                description={
+                  parcelaUnica
+                    ? "Aparece assim no extrato."
+                    : "Aparece em toda parcela, depois de 'Parcela 1/5 - '."
+                }
                 required
               >
                 <Input
@@ -123,7 +132,9 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
                   autoFocus
                   {...fieldAria("descricao", {
                     error: descricaoError,
-                    description: "Aparece em toda parcela.",
+                    description: parcelaUnica
+                      ? "Aparece assim no extrato."
+                      : "Aparece em toda parcela.",
                   })}
                 />
               </Field>
@@ -146,19 +157,23 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
                   id="parcelas"
                   label="Parcelas"
                   error={parcelasError}
+                  description="Use 1 para pagar tudo em uma data so."
                   required
                 >
                   <Input
                     name="parcelas"
                     type="number"
                     inputMode="numeric"
-                    min={2}
+                    min={1}
                     max={60}
                     value={parcelas}
                     onChange={(event) =>
                       setParcelas(Number(event.target.value) || 0)
                     }
-                    {...fieldAria("parcelas", { error: parcelasError })}
+                    {...fieldAria("parcelas", {
+                      error: parcelasError,
+                      description: "Use 1 para pagar tudo em uma data so.",
+                    })}
                   />
                 </Field>
               </div>
@@ -166,15 +181,19 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
                   id="primeiro_vencimento"
-                  label="Primeiro vencimento"
-                  description="As demais vencem de mes em mes."
+                  label={parcelaUnica ? "Vencimento" : "Primeiro vencimento"}
+                  description={
+                    parcelaUnica ? undefined : "As demais vencem de mes em mes."
+                  }
                 >
                   <Input
                     name="primeiro_vencimento"
                     type="date"
                     defaultValue={hoje}
                     {...fieldAria("primeiro_vencimento", {
-                      description: "As demais vencem mensalmente.",
+                      description: parcelaUnica
+                        ? undefined
+                        : "As demais vencem mensalmente.",
                     })}
                   />
                 </Field>
@@ -225,8 +244,9 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
               ) : null}
 
               <Alert tone="info">
-                O caixa nao muda agora. As parcelas aparecem como pendentes ate
-                voce marcar cada pagamento.
+                {parcelaUnica
+                  ? "O caixa nao muda agora. A saida fica pendente ate voce marcar o pagamento."
+                  : "O caixa nao muda agora. As parcelas aparecem como pendentes ate voce marcar cada pagamento."}
               </Alert>
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -240,7 +260,11 @@ export function InstallmentForm({ hoje }: { hoje: string }) {
 
                 <Button type="submit" disabled={pending}>
                   {pending ? <Spinner label="Registrando" /> : null}
-                  {pending ? "Registrando..." : "Registrar parcelamento"}
+                  {pending
+                    ? "Registrando..."
+                    : parcelaUnica
+                      ? "Registrar compra"
+                      : "Registrar parcelamento"}
                 </Button>
               </div>
             </form>

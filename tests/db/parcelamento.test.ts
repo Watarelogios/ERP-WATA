@@ -153,9 +153,31 @@ describe("parcelamento", () => {
       expect(Number(pendente.rows[0].soma)).toBe(1200);
     });
 
-    it("recusa menos de duas parcelas", async () => {
-      await expect(parcelar("Uma so", 1000, 1)).rejects.toThrow(
-        /entre 2 e 60/i,
+    it("aceita parcela unica, para a compra a prazo de pagamento so", async () => {
+      const result = await parcelar("Cartao para o dia 10", 4500, 1);
+      const linhas = await parcelas(result.rows[0].parcelamento_id);
+
+      expect(linhas.rows).toHaveLength(1);
+      expect(Number(linhas.rows[0].valor)).toBe(4500);
+      expect(linhas.rows[0].status).toBe("PENDING");
+    });
+
+    it("nao prefixa 'Parcela 1/1' quando ha uma parcela so", async () => {
+      const result = await parcelar("Cartao dia 10", 4500, 1);
+      const linhas = await parcelas(result.rows[0].parcelamento_id);
+
+      expect(linhas.rows[0].descricao).toBe("Cartao dia 10");
+    });
+
+    it("recusa zero parcelas", async () => {
+      await expect(parcelar("Nenhuma", 1000, 0)).rejects.toThrow(
+        /entre 1 e 60/i,
+      );
+    });
+
+    it("recusa mais de sessenta parcelas", async () => {
+      await expect(parcelar("Longa demais", 1000, 61)).rejects.toThrow(
+        /entre 1 e 60/i,
       );
     });
 
@@ -479,6 +501,24 @@ describe("parcelamento editavel", () => {
         ),
       ),
     ).rejects.toThrow(/nao encontrada/i);
+  });
+
+  it("renomeia a compra de parcela unica sem inventar o prefixo", async () => {
+    const { grupo } = await criar("Nome antigo", 4500, 1);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query("select public.rename_installment_plan($1, $2)", [
+        grupo,
+        "Cartao Nubank - Tag Heuer",
+      ]),
+    );
+
+    const depois = await ctx.db.query<{ descricao: string }>(
+      "select descricao from public.financial_transactions where parcelamento_id = $1",
+      [grupo],
+    );
+
+    expect(depois.rows[0].descricao).toBe("Cartao Nubank - Tag Heuer");
   });
 
   it("nao renomeia parcelamento de outro usuario", async () => {

@@ -106,9 +106,12 @@ function ParcelaLinha({
           </span>
 
           <span className="min-w-0">
-            <span className="font-medium">
-              {parcela.numero}/{total}
-            </span>{" "}
+            {/* "1/1" nao informa nada numa compra de pagamento unico. */}
+            {total > 1 ? (
+              <span className="font-medium">
+                {parcela.numero}/{total}{" "}
+              </span>
+            ) : null}
             <span className="tabular-nums" data-money>
               {formatBRL(parcela.valorCents)}
             </span>
@@ -236,8 +239,15 @@ export function InstallmentPlanCard({
             {descricao}
           </p>
           <p className="text-xs text-muted">
-            {pagas} de {total} pagas · falta{" "}
-            <span className="tabular-nums">{formatBRL(pendenteCents)}</span>
+            {total > 1 ? `${pagas} de ${total} pagas` : "Pagamento unico"}
+            {pendenteCents > 0 ? (
+              <>
+                {" · falta "}
+                <span className="tabular-nums">{formatBRL(pendenteCents)}</span>
+              </>
+            ) : (
+              " · quitada"
+            )}
           </p>
         </div>
 

@@ -172,9 +172,13 @@ const installmentSchema = z.object({
     .string()
     .trim()
     .transform((value) => Number(value))
+    /*
+     * Uma parcela e valido: comprar no cartao para pagar so no dia 10 tambem e
+     * a prazo, e precisa do mesmo acompanhamento de vencimento.
+     */
     .refine(
-      (value) => Number.isInteger(value) && value >= 2 && value <= 60,
-      { error: "Informe de 2 a 60 parcelas." },
+      (value) => Number.isInteger(value) && value >= 1 && value <= 60,
+      { error: "Informe de 1 a 60 parcelas." },
     ),
   primeiro_vencimento: dateField,
   categoria: z.enum([...EXPENSE_CATEGORIES]),
@@ -185,7 +189,7 @@ export type InstallmentFormState = FormState<
 >;
 
 /**
- * Cria uma compra parcelada.
+ * Cria uma compra a prazo, em uma ou mais parcelas.
  *
  * As parcelas nascem pendentes: o total devido aparece hoje no extrato, mas o
  * caixa so e debitado conforme cada uma e paga.
@@ -223,14 +227,14 @@ export async function createInstallmentPurchaseAction(
       console.error("[wata] createInstallmentPurchase", error.message);
 
       const conhecida =
-        error.message.includes("entre 2 e 60") ||
+        error.message.includes("entre 1 e 60") ||
         error.message.includes("valor total") ||
         error.message.includes("descricao");
 
       return {
         message: conhecida
           ? error.message
-          : "Nao foi possivel registrar a compra parcelada.",
+          : "Nao foi possivel registrar a compra a prazo.",
       };
     }
   } catch (error) {
@@ -245,7 +249,10 @@ export async function createInstallmentPurchaseAction(
 
   return {
     success: true,
-    message: `Compra parcelada em ${data.parcelas}x registrada.`,
+    message:
+      data.parcelas === 1
+        ? "Compra a prazo registrada."
+        : `Compra parcelada em ${data.parcelas}x registrada.`,
   };
 }
 

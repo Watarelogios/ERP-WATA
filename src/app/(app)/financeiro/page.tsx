@@ -275,7 +275,7 @@ export default async function FinanceiroPage({
       {planos.length > 0 ? (
         <Card className="mb-4 border-warning/30">
           <CardHeader className="border-warning/30">
-            <CardTitle>Compras parceladas ({planos.length})</CardTitle>
+            <CardTitle>Compras a prazo ({planos.length})</CardTitle>
             <p className="mt-1 text-sm text-muted">
               Parcela pendente nao reduz o caixa. O debito acontece ao marcar o
               pagamento, e desfazer devolve o valor.
