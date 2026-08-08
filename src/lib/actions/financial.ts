@@ -298,3 +298,159 @@ export async function payInstallmentAction(
 
   return { success: true, message: "Parcela paga e debitada do caixa." };
 }
+
+export type EditInstallmentFormState = FormState<"valor" | "vencimento">;
+
+/** Corrige valor e vencimento de uma parcela ainda pendente. */
+export async function updateInstallmentAction(
+  _prevState: EditInstallmentFormState,
+  formData: FormData,
+): Promise<EditInstallmentFormState> {
+  const transactionId = String(formData.get("transaction_id") ?? "");
+
+  if (!z.uuid().safeParse(transactionId).success) {
+    return { message: "Parcela invalida." };
+  }
+
+  const parsed = z
+    .object({
+      valor: moneyField({ required: true, label: "valor da parcela" }),
+      vencimento: dateField,
+    })
+    .safeParse({
+      valor: formData.get("valor") ?? "",
+      vencimento: formData.get("vencimento") ?? "",
+    });
+
+  if (!parsed.success) {
+    return { errors: z.flattenError(parsed.error).fieldErrors };
+  }
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("update_installment", {
+      p_transaction_id: transactionId,
+      p_valor: Number(centsToDatabase(parsed.data.valor ?? 0)),
+      p_vencimento: parsed.data.vencimento ?? undefined,
+    });
+
+    if (error) {
+      console.error("[wata] updateInstallment", error.message);
+
+      const conhecida =
+        error.message.includes("Desfaca o pagamento") ||
+        error.message.includes("nao encontrada") ||
+        error.message.includes("maior que zero");
+
+      return {
+        message: conhecida
+          ? error.message
+          : "Nao foi possivel alterar a parcela.",
+      };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("updateInstallment", error);
+  }
+
+  revalidatePath("/", "layout");
+
+  return { success: true, message: "Parcela atualizada." };
+}
+
+export type UnpayInstallmentFormState = FormState<never>;
+
+/** Desfaz o pagamento de uma parcela, devolvendo o valor ao caixa. */
+export async function unpayInstallmentAction(
+  _prevState: UnpayInstallmentFormState,
+  formData: FormData,
+): Promise<UnpayInstallmentFormState> {
+  const transactionId = String(formData.get("transaction_id") ?? "");
+
+  if (!z.uuid().safeParse(transactionId).success) {
+    return { message: "Parcela invalida." };
+  }
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("unpay_installment", {
+      p_transaction_id: transactionId,
+    });
+
+    if (error) {
+      console.error("[wata] unpayInstallment", error.message);
+
+      const conhecida =
+        error.message.includes("nao esta paga") ||
+        error.message.includes("nao encontrada");
+
+      return {
+        message: conhecida
+          ? error.message
+          : "Nao foi possivel desfazer o pagamento.",
+      };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("unpayInstallment", error);
+  }
+
+  revalidatePath("/", "layout");
+
+  return { success: true, message: "Pagamento desfeito e valor devolvido ao caixa." };
+}
+
+export type RenamePlanFormState = FormState<"descricao">;
+
+/** Renomeia todas as parcelas de uma compra de uma vez. */
+export async function renameInstallmentPlanAction(
+  _prevState: RenamePlanFormState,
+  formData: FormData,
+): Promise<RenamePlanFormState> {
+  const planId = String(formData.get("parcelamento_id") ?? "");
+  const descricao = String(formData.get("descricao") ?? "").trim();
+
+  if (!z.uuid().safeParse(planId).success) {
+    return { message: "Parcelamento invalido." };
+  }
+
+  if (descricao.length === 0) {
+    return { errors: { descricao: ["Informe a descricao da compra."] } };
+  }
+
+  if (descricao.length > 200) {
+    return { errors: { descricao: ["Use no maximo 200 caracteres."] } };
+  }
+
+  try {
+    const { supabase } = await requireContext();
+
+    const { error } = await supabase.rpc("rename_installment_plan", {
+      p_parcelamento_id: planId,
+      p_descricao: descricao,
+    });
+
+    if (error) {
+      console.error("[wata] renameInstallmentPlan", error.message);
+      return { message: "Nao foi possivel renomear a compra parcelada." };
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return { message: error.message };
+    }
+
+    return reportUnexpectedError("renameInstallmentPlan", error);
+  }
+
+  revalidatePath("/", "layout");
+
+  return { success: true, message: "Descricao atualizada em todas as parcelas." };
+}

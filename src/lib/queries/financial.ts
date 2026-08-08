@@ -150,6 +150,17 @@ export async function getPeriodTotals(
   return { entradasCents, saidasCents, pendentesCents };
 }
 
+export type InstallmentItem = {
+  id: string;
+  numero: number;
+  valorCents: number;
+  /** Vencimento combinado, preservado mesmo depois do pagamento. */
+  vencimento: string;
+  paga: boolean;
+  /** Data em que a parcela foi efetivamente paga. */
+  dataPagamento: string | null;
+};
+
 export type InstallmentPlan = {
   parcelamentoId: string;
   /** Descricao sem o prefixo "Parcela i/N", que se repete em todas. */
@@ -160,19 +171,16 @@ export type InstallmentPlan = {
   pendenteCents: number;
   /** Vencimento da proxima parcela em aberto. */
   proximoVencimento: string | null;
-  proximaParcela: {
-    id: string;
-    numero: number;
-    valorCents: number;
-    vencimento: string;
-  } | null;
+  /** Todas as parcelas, em ordem, para editar qualquer uma delas. */
+  parcelas: InstallmentItem[];
 };
 
 /**
- * Compras parceladas com parcela em aberto.
+ * Compras parceladas, com todas as parcelas de cada uma.
  *
  * Agrupa por parcelamento para a tela mostrar "2 de 5 pagas" em vez de cinco
- * linhas soltas, e destaca a proxima parcela a vencer.
+ * linhas soltas. As quitadas continuam na lista: sem elas, desfazer um
+ * pagamento marcado por engano exigiria caçar a linha no extrato.
  */
 export async function listInstallmentPlans(): Promise<InstallmentPlan[]> {
   await requireUser();
@@ -181,7 +189,7 @@ export async function listInstallmentPlans(): Promise<InstallmentPlan[]> {
   const { data, error } = await supabase
     .from("financial_transactions")
     .select(
-      "id, valor, status, data, descricao, parcelamento_id, parcela_numero, parcela_total",
+      "id, valor, status, data, descricao, parcelamento_id, parcela_numero, parcela_total, parcela_vencimento",
     )
     .not("parcelamento_id", "is", null)
     .order("parcela_numero", { ascending: true });
@@ -196,6 +204,7 @@ export async function listInstallmentPlans(): Promise<InstallmentPlan[]> {
   for (const row of data ?? []) {
     const grupoId = String(row.parcelamento_id);
     const cents = toCents(row.valor);
+    const paga = row.status === "CONFIRMED";
 
     let plano = grupos.get(grupoId);
 
@@ -209,35 +218,46 @@ export async function listInstallmentPlans(): Promise<InstallmentPlan[]> {
         totalCents: 0,
         pendenteCents: 0,
         proximoVencimento: null,
-        proximaParcela: null,
+        parcelas: [],
       };
       grupos.set(grupoId, plano);
     }
 
     plano.totalCents += cents;
 
-    if (row.status === "CONFIRMED") {
+    plano.parcelas.push({
+      id: String(row.id),
+      numero: Number(row.parcela_numero ?? 0),
+      valorCents: cents,
+      // Parcelas criadas antes da coluna propria caem na data do lancamento.
+      vencimento: String(row.parcela_vencimento ?? row.data),
+      paga,
+      dataPagamento: paga ? String(row.data) : null,
+    });
+
+    if (paga) {
       plano.pagas += 1;
     } else if (row.status === "PENDING") {
       plano.pendenteCents += cents;
 
       // As linhas vem ordenadas por numero: a primeira pendente e a proxima.
-      if (!plano.proximaParcela) {
-        plano.proximaParcela = {
-          id: String(row.id),
-          numero: Number(row.parcela_numero ?? 0),
-          valorCents: cents,
-          vencimento: String(row.data),
-        };
-        plano.proximoVencimento = String(row.data);
-      }
+      plano.proximoVencimento ??= String(row.parcela_vencimento ?? row.data);
     }
   }
 
-  // Só interessa o que ainda tem parcela em aberto; o resto vira historico.
-  return [...grupos.values()]
-    .filter((plano) => plano.pendenteCents > 0)
-    .sort((a, b) =>
-      (a.proximoVencimento ?? "").localeCompare(b.proximoVencimento ?? ""),
-    );
+  /*
+   * Em aberto primeiro, pela parcela que vence antes. As quitadas vao para o
+   * fim: continuam acessiveis sem competir com o que ainda precisa ser pago.
+   */
+  return [...grupos.values()].sort((a, b) => {
+    if (a.proximoVencimento === null || b.proximoVencimento === null) {
+      if (a.proximoVencimento !== b.proximoVencimento) {
+        return a.proximoVencimento === null ? 1 : -1;
+      }
+
+      return a.descricao.localeCompare(b.descricao);
+    }
+
+    return a.proximoVencimento.localeCompare(b.proximoVencimento);
+  });
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { InstallmentForm } from "@/app/(app)/financeiro/installment-form";
 import { ManualTransactionForm } from "@/app/(app)/financeiro/manual-transaction-form";
-import { PayInstallmentButton } from "@/components/domain/pay-installment-button";
+import { InstallmentPlanCard } from "@/components/domain/installment-plan-card";
 import { ReverseTransactionButton } from "@/components/domain/reverse-transaction-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -269,66 +269,43 @@ export default async function FinanceiroPage({
 
       {/*
         Parcelas em aberto sao obrigacao assumida: aparecem antes do extrato,
-        como os repasses pendentes em Vendas.
+        como os repasses pendentes em Vendas. Tudo aqui e editavel — valor,
+        vencimento, descricao — e o pagamento pode ser desfeito.
       */}
       {planos.length > 0 ? (
         <Card className="mb-4 border-warning/30">
           <CardHeader className="border-warning/30">
-            <CardTitle>Compras parceladas em aberto ({planos.length})</CardTitle>
+            <CardTitle>Compras parceladas ({planos.length})</CardTitle>
             <p className="mt-1 text-sm text-muted">
               Parcela pendente nao reduz o caixa. O debito acontece ao marcar o
-              pagamento.
+              pagamento, e desfazer devolve o valor.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-3">
-            {planos.map((plano) => {
-              const atrasada =
-                plano.proximoVencimento !== null &&
-                plano.proximoVencimento < hoje;
-
-              return (
-                <div
-                  key={plano.parcelamentoId}
-                  className="flex flex-col gap-3 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-graphite-dark">
-                      {plano.descricao}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {plano.pagas} de {plano.total} pagas · falta{" "}
-                      <span className="tabular-nums">
-                        {formatBRL(plano.pendenteCents)}
-                      </span>
-                      {plano.proximaParcela ? (
-                        <>
-                          {" · "}
-                          <span className={atrasada ? "font-medium text-danger" : ""}>
-                            {atrasada ? "venceu em " : "vence em "}
-                            {formatDate(plano.proximaParcela.vencimento)}
-                          </span>
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-
-                  {plano.proximaParcela ? (
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <span className="text-sm font-medium tabular-nums" data-money>
-                        {formatBRL(plano.proximaParcela.valorCents)}
-                      </span>
-
-                      <PayInstallmentButton
-                        transactionId={plano.proximaParcela.id}
-                        hoje={hoje}
-                        label={`Pagar ${plano.proximaParcela.numero}/${plano.total}`}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
+            {planos.map((plano) => (
+              <InstallmentPlanCard
+                key={plano.parcelamentoId}
+                parcelamentoId={plano.parcelamentoId}
+                descricao={plano.descricao}
+                total={plano.total}
+                pagas={plano.pagas}
+                pendenteCents={plano.pendenteCents}
+                hoje={hoje}
+                // Formatado aqui: o fuso da loja so existe no servidor.
+                parcelas={plano.parcelas.map((parcela) => ({
+                  id: parcela.id,
+                  numero: parcela.numero,
+                  valorCents: parcela.valorCents,
+                  vencimento: parcela.vencimento,
+                  vencimentoLabel: formatDate(parcela.vencimento),
+                  paga: parcela.paga,
+                  pagamentoLabel: parcela.dataPagamento
+                    ? formatDate(parcela.dataPagamento)
+                    : null,
+                }))}
+              />
+            ))}
           </CardContent>
         </Card>
       ) : null}

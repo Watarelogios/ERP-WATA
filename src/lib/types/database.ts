@@ -338,6 +338,7 @@ export type Database = {
           parcelamento_id: string | null
           parcela_numero: number | null
           parcela_total: number | null
+          parcela_vencimento: string | null
         }
         Insert: {
           id?: string
@@ -360,6 +361,7 @@ export type Database = {
           parcelamento_id?: string | null
           parcela_numero?: number | null
           parcela_total?: number | null
+          parcela_vencimento?: string | null
         }
         Update: {
           id?: string
@@ -382,6 +384,7 @@ export type Database = {
           parcelamento_id?: string | null
           parcela_numero?: number | null
           parcela_total?: number | null
+          parcela_vencimento?: string | null
         }
         Relationships: [
           {
@@ -1056,6 +1059,10 @@ export type Database = {
         Args: { p_watch_id: string; p_data_compra?: string }
         Returns: { expense_id: string; transaction_id: string; valor: number }[]
       }
+      rename_installment_plan: {
+        Args: { p_parcelamento_id: string; p_descricao: string }
+        Returns: number
+      }
       reverse_financial_transaction: {
         Args: { p_transaction_id: string; p_motivo?: string }
         Returns: { transaction_id: string; expense_id: string }[]
@@ -1063,6 +1070,14 @@ export type Database = {
       sale_gross_profit: {
         Args: { p_sale_id: string }
         Returns: number
+      }
+      unpay_installment: {
+        Args: { p_transaction_id: string }
+        Returns: { valor: number; vencimento: string }[]
+      }
+      update_installment: {
+        Args: { p_transaction_id: string; p_valor?: number; p_vencimento?: string }
+        Returns: { valor: number; vencimento: string }[]
       }
       update_sale: {
         Args: { p_sale_id: string; p_valor_venda: number; p_origem?: string; p_forma_pagamento?: string; p_data_venda?: string; p_client_id?: string }

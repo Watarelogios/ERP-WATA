@@ -266,3 +266,231 @@ describe("parcelamento", () => {
     });
   });
 });
+
+/**
+ * Edicao do parcelamento (migration 00018).
+ *
+ * Combinado errado, valor torto e pagamento marcado por engano sao normais no
+ * uso diario: precisam ter conserto sem estornar tudo e recriar.
+ */
+describe("parcelamento editavel", () => {
+  let ctx: TestDatabase;
+  let owner: string;
+  let outro: string;
+
+  async function caixa() {
+    const result = await ctx.db.query<{ caixa: string }>(
+      "select caixa from public.dashboard_summary where owner_id = $1",
+      [owner],
+    );
+
+    return Number(result.rows[0].caixa);
+  }
+
+  async function criar(descricao: string, total: number, parcelas: number) {
+    const result = await ctx.asUser(owner, () =>
+      ctx.db.query<{ parcelamento_id: string }>(
+        `select * from public.create_installment_purchase(
+           p_descricao => $1, p_valor_total => $2, p_parcelas => $3::smallint
+         )`,
+        [descricao, total, parcelas],
+      ),
+    );
+
+    const grupo = result.rows[0].parcelamento_id;
+
+    const linhas = await ctx.db.query<{
+      id: string;
+      valor: string;
+      status: string;
+      data: string;
+      descricao: string;
+      parcela_vencimento: string;
+    }>(
+      `select id, valor, status, data, descricao, parcela_vencimento
+       from public.financial_transactions
+       where parcelamento_id = $1 order by parcela_numero`,
+      [grupo],
+    );
+
+    return { grupo, linhas: linhas.rows };
+  }
+
+  beforeAll(async () => {
+    ctx = await createTestDatabase();
+    owner = await ctx.createUser("dono@wata.test");
+    outro = await ctx.createUser("outro@wata.test");
+
+    await ctx.db.query(
+      "insert into public.settings (owner_id, saldo_inicial) values ($1, 30000)",
+      [owner],
+    );
+  });
+
+  afterAll(async () => {
+    await ctx?.close();
+  });
+
+  it("altera o valor de uma parcela pendente", async () => {
+    const { linhas } = await criar("Ajuste de valor", 3000, 3);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query(
+        "select * from public.update_installment(p_transaction_id => $1, p_valor => $2)",
+        [linhas[0].id, 1200],
+      ),
+    );
+
+    const depois = await ctx.db.query<{ valor: string }>(
+      "select valor from public.financial_transactions where id = $1",
+      [linhas[0].id],
+    );
+
+    expect(Number(depois.rows[0].valor)).toBe(1200);
+  });
+
+  it("altera o vencimento sem mexer no caixa", async () => {
+    const antes = await caixa();
+    const { linhas } = await criar("Ajuste de data", 2000, 2);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query(
+        "select * from public.update_installment(p_transaction_id => $1, p_vencimento => current_date + 45)",
+        [linhas[0].id],
+      ),
+    );
+
+    expect(await caixa()).toBe(antes);
+  });
+
+  it("recusa editar parcela ja paga", async () => {
+    const { linhas } = await criar("Ja paga", 2000, 2);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query("select * from public.pay_installment(p_transaction_id => $1)", [
+        linhas[0].id,
+      ]),
+    );
+
+    await expect(
+      ctx.asUser(owner, () =>
+        ctx.db.query(
+          "select * from public.update_installment(p_transaction_id => $1, p_valor => 999)",
+          [linhas[0].id],
+        ),
+      ),
+    ).rejects.toThrow(/desfaca o pagamento/i);
+  });
+
+  it("desfaz o pagamento devolvendo o valor ao caixa", async () => {
+    const { linhas } = await criar("Desfazer", 2000, 2);
+    const antes = await caixa();
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query("select * from public.pay_installment(p_transaction_id => $1)", [
+        linhas[0].id,
+      ]),
+    );
+    expect(await caixa()).toBe(antes - 1000);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query("select * from public.unpay_installment(p_transaction_id => $1)", [
+        linhas[0].id,
+      ]),
+    );
+
+    expect(await caixa()).toBe(antes);
+  });
+
+  it("restaura o vencimento combinado ao desfazer", async () => {
+    /*
+     * Pagar sobrescreve a data no extrato com a data do pagamento. O
+     * vencimento vive em coluna propria justamente para sobreviver a isso.
+     */
+    const { linhas } = await criar("Vencimento preservado", 2000, 2);
+    const vencimentoOriginal = linhas[0].parcela_vencimento;
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query(
+        "select * from public.pay_installment(p_transaction_id => $1, p_data_pagamento => current_date + 10)",
+        [linhas[0].id],
+      ),
+    );
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query("select * from public.unpay_installment(p_transaction_id => $1)", [
+        linhas[0].id,
+      ]),
+    );
+
+    const depois = await ctx.db.query<{ status: string; data: string }>(
+      "select status, data from public.financial_transactions where id = $1",
+      [linhas[0].id],
+    );
+
+    expect(depois.rows[0].status).toBe("PENDING");
+    expect(depois.rows[0].data).toEqual(vencimentoOriginal);
+  });
+
+  it("recusa desfazer parcela que nao esta paga", async () => {
+    const { linhas } = await criar("Nao paga", 2000, 2);
+
+    await expect(
+      ctx.asUser(owner, () =>
+        ctx.db.query(
+          "select * from public.unpay_installment(p_transaction_id => $1)",
+          [linhas[0].id],
+        ),
+      ),
+    ).rejects.toThrow(/nao esta paga/i);
+  });
+
+  it("renomeia todas as parcelas de uma vez", async () => {
+    const { grupo } = await criar("Nome errado", 3000, 3);
+
+    await ctx.asUser(owner, () =>
+      ctx.db.query(
+        "select public.rename_installment_plan($1, $2)",
+        [grupo, "Tag Heuer ref Y"],
+      ),
+    );
+
+    const depois = await ctx.db.query<{ descricao: string }>(
+      `select descricao from public.financial_transactions
+       where parcelamento_id = $1 order by parcela_numero`,
+      [grupo],
+    );
+
+    expect(depois.rows.map((row) => row.descricao)).toEqual([
+      "Parcela 1/3 - Tag Heuer ref Y",
+      "Parcela 2/3 - Tag Heuer ref Y",
+      "Parcela 3/3 - Tag Heuer ref Y",
+    ]);
+  });
+
+  it("nao edita parcela de outro usuario", async () => {
+    const { linhas } = await criar("Protegida", 2000, 2);
+
+    await expect(
+      ctx.asUser(outro, () =>
+        ctx.db.query(
+          "select * from public.update_installment(p_transaction_id => $1, p_valor => 1)",
+          [linhas[0].id],
+        ),
+      ),
+    ).rejects.toThrow(/nao encontrada/i);
+  });
+
+  it("nao renomeia parcelamento de outro usuario", async () => {
+    const { grupo } = await criar("Protegido", 2000, 2);
+
+    await expect(
+      ctx.asUser(outro, () =>
+        ctx.db.query("select public.rename_installment_plan($1, $2)", [
+          grupo,
+          "Invadido",
+        ]),
+      ),
+    ).rejects.toThrow(/nao encontrado/i);
+  });
+});
