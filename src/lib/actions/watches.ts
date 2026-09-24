@@ -442,17 +442,32 @@ export async function updateWatchAction(
   return { success: true, message: "Alteracoes salvas." };
 }
 
-/** Exclusao logica (Secao 8): o historico permanece integro. */
-export async function archiveWatchAction(watchId: string): Promise<FormState> {
+/**
+ * Exclusao logica de um relogio (Secao 8): o historico permanece integro.
+ *
+ * Serve para o cadastro feito por engano. Vendido nunca sai — a venda e o lucro
+ * ja entraram no resultado — e reservado tambem nao, porque existe um sinal no
+ * caixa preso a ele; o caminho ali e cancelar a reserva antes.
+ */
+export async function archiveWatchAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const watchId = String(formData.get("watch_id") ?? "");
+
+  if (!watchId) {
+    return { message: "Relogio nao informado." };
+  }
+
   try {
     const { supabase } = await requireContext();
 
-    // Item vendido nao pode ser arquivado por engano: preserva o historico.
     const { data, error } = await supabase
       .from("watches")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", watchId)
-      .neq("status", "SOLD")
+      .is("deleted_at", null)
+      .not("status", "in", "(SOLD,RESERVED)")
       .select("id");
 
     if (error) {
@@ -462,7 +477,7 @@ export async function archiveWatchAction(watchId: string): Promise<FormState> {
     if (!data?.length) {
       return {
         message:
-          "Nao foi possivel arquivar: o relogio nao existe ou ja foi vendido.",
+          "Nao foi possivel excluir: o relogio ja saiu do estoque, esta vendido ou tem reserva ativa.",
       };
     }
   } catch (error) {
@@ -473,6 +488,7 @@ export async function archiveWatchAction(watchId: string): Promise<FormState> {
     return reportUnexpectedError("archiveWatch", error);
   }
 
-  revalidatePath("/estoque");
+  // O relogio some do estoque, do dashboard e dos relatorios.
+  revalidatePath("/", "layout");
   redirect("/estoque");
 }

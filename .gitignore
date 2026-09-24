@@ -50,3 +50,6 @@ next-env.d.ts
 
 # configuracoes locais do Claude Code (por maquina)
 .claude/settings.local.json
+
+# Arquivos temporarios do CLI do Supabase.
+supabase/.temp/

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { WataMark } from "@/components/layout/wata-mark";
+import { WataLogo } from "@/components/layout/wata-logo";
 
 /**
  * Layout das telas publicas.
@@ -13,9 +13,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh flex-col bg-surface">
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <WataMark className="text-2xl" />
-            <p className="mt-2 text-sm text-muted">Gestao de relogios</p>
+          <div className="mb-8 flex flex-col items-center text-center">
+            {/* Primeira coisa visivel da tela: carrega com prioridade. */}
+            <WataLogo priority />
+            <p className="mt-3 text-sm text-muted">Gestao de relogios</p>
           </div>
 
           {children}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ArchiveWatchDialog } from "@/components/domain/archive-watch-dialog";
 import { CancelReservationDialog } from "@/components/domain/cancel-reservation-dialog";
 import { PhotoManager } from "@/components/domain/photo-manager";
 import { PageHeader } from "@/components/layout/page-header";
@@ -68,6 +69,12 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
     supabase,
     watch.photos.map((photo) => photo.storage_path),
   );
+
+  // Quantos lancamentos a exclusao deixaria para tras, avisado no dialogo.
+  const { count: lancamentosLigados } = await supabase
+    .from("financial_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("watch_id", watch.id);
 
   const specs: Array<{ label: string; value: string }> = [
     { label: "Referencia", value: watch.referencia ?? "—" },
@@ -348,6 +355,20 @@ export default async function RelogioPage(props: PageProps<"/estoque/[id]">) {
                 >
                   Vender
                 </Link>
+              ) : null}
+
+              {/*
+                Excluir so aparece enquanto o relogio nao tem historico: depois
+                de vendido ou reservado, o botao seria uma porta fechada.
+              */}
+              {watch.status === "AVAILABLE" ? (
+                <div className="border-t border-border pt-2">
+                  <ArchiveWatchDialog
+                    watchId={watch.id}
+                    subject={`${watch.marca} ${watch.modelo} · ${watch.wata_id}`}
+                    lancamentos={lancamentosLigados ?? 0}
+                  />
+                </div>
               ) : null}
             </CardContent>
           </Card>
